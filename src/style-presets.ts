@@ -2,12 +2,14 @@ import type { AnimatePreset, StylePreset } from "./types.ts";
 
 type CSSProps = Partial<CSSStyleDeclaration>;
 
+/** CSS transition and visibility states for a show/hide animation */
 export interface AnimateConfig {
 	transition: string;
 	hidden: CSSProps;
 	visible: CSSProps;
 }
 
+/** Built-in animation configurations keyed by {@linkcode AnimatePreset} name */
 export const ANIMATE_PRESETS: Record<AnimatePreset, AnimateConfig> = {
 	"fade-scale": {
 		transition: "opacity 200ms ease, transform 200ms ease",
@@ -26,6 +28,7 @@ const BASE_CONTAINER: CSSProps = {
 	overflow: "hidden",
 };
 
+/** Base CSS styles applied to every widget iframe (100% size, no border) */
 export const IFRAME_BASE: CSSProps = {
 	width: "100%",
 	height: "100%",
@@ -83,6 +86,7 @@ export const TRIGGER_BASE: CSSProps = {
 	padding: "0",
 };
 
+/** CSS property objects for each positioning mode keyed by {@linkcode StylePreset} name */
 export const STYLE_PRESETS: Record<StylePreset, CSSProps> = {
 	float: PRESET_FLOAT,
 	fullscreen: PRESET_FULLSCREEN,

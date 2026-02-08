@@ -20,6 +20,10 @@ import {
 
 const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
+/**
+ * Resolve the list of allowed origins for postMessage validation.
+ * Uses explicit value if provided, otherwise derives from widgetUrl. Falls back to `["*"]`.
+ */
 export function resolveAllowedOrigins(
 	explicit: string | string[] | undefined,
 	widgetUrl: string,
@@ -34,6 +38,7 @@ export function resolveAllowedOrigins(
 	}
 }
 
+/** Check whether a given origin is permitted by the allowed origins list. */
 export function isOriginAllowed(
 	origin: string,
 	allowed: string[],
@@ -42,6 +47,7 @@ export function isOriginAllowed(
 	return allowed.includes(origin);
 }
 
+/** Resolve the `animate` option into a concrete {@linkcode AnimateConfig} or `null` if disabled. */
 export function resolveAnimateConfig(
 	opt: WidgetProviderOptions["animate"],
 ): AnimateConfig | null {
@@ -53,6 +59,14 @@ export function resolveAnimateConfig(
 	return opt.transition ? { ...base, transition: opt.transition } : base;
 }
 
+/**
+ * Create and embed an iframe-based widget into the host page.
+ *
+ * Creates a sandboxed iframe, applies the chosen style preset, wires up
+ * bidirectional postMessage communication, and returns a control API.
+ *
+ * @throws {Error} If `widgetUrl` is not provided.
+ */
 export function provideWidget(
 	options: WidgetProviderOptions,
 ): WidgetProviderApi {

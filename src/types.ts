@@ -16,10 +16,13 @@ export type AnimatePreset = "fade-scale" | "slide-up";
 /** CSS overrides applied on top of a style preset */
 export type StyleOverrides = Partial<CSSStyleDeclaration>;
 
+/** Callback for handling a typed message payload from the widget iframe */
 export type MessageHandler<T = unknown> = (payload: T) => void;
 
+/** Function that removes a previously registered listener or subscription */
 export type Unsubscribe = () => void;
 
+/** Configuration options for {@linkcode provideWidget} */
 export interface WidgetProviderOptions {
 	/** The URL of the SPA to embed */
 	widgetUrl: string;
@@ -92,6 +95,7 @@ export interface WidgetState {
 	preset: StylePreset;
 }
 
+/** Control API returned by {@linkcode provideWidget} */
 export interface WidgetProviderApi {
 	/** Show the widget container */
 	show(): void;
