@@ -1,27 +1,27 @@
 export {
+	isOriginAllowed,
 	provideWidget,
 	resolveAllowedOrigins,
-	isOriginAllowed,
 	resolveAnimateConfig,
 } from "./widget-provider.ts";
 
 export type {
-	WidgetProviderOptions,
-	WidgetProviderApi,
-	WidgetState,
-	WidgetMessage,
-	StylePreset,
-	StyleOverrides,
 	AnimatePreset,
 	MessageHandler,
+	StyleOverrides,
+	StylePreset,
 	Unsubscribe,
+	WidgetMessage,
+	WidgetProviderApi,
+	WidgetProviderOptions,
+	WidgetState,
 } from "./types.ts";
 
 export { MSG_PREFIX } from "./types.ts";
 
 export {
-	STYLE_PRESETS,
-	IFRAME_BASE,
 	ANIMATE_PRESETS,
 	type AnimateConfig,
+	IFRAME_BASE,
+	STYLE_PRESETS,
 } from "./style-presets.ts";

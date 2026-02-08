@@ -8,8 +8,8 @@ import {
 	TRIGGER_BASE,
 } from "./style-presets.ts";
 import {
-	MSG_PREFIX,
 	type MessageHandler,
+	MSG_PREFIX,
 	type StylePreset,
 	type Unsubscribe,
 	type WidgetMessage,
@@ -17,8 +17,13 @@ import {
 	type WidgetProviderOptions,
 	type WidgetState,
 } from "./types.ts";
+import { createClog } from "@marianmeres/clog";
+import { createPubSub } from "@marianmeres/pubsub";
 
-const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const clog = createClog("widget-provider");
+
+const DEFAULT_TRIGGER_ICON =
+	`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 /**
  * Resolve the list of allowed origins for postMessage validation.
@@ -127,7 +132,11 @@ export function provideWidget(
 	}
 
 	// messaging
-	const messageHandlers = new Map<string, Set<MessageHandler>>();
+	const pubsub = createPubSub({
+		onError: (error) => {
+			clog.warn("message handler error:", error);
+		},
+	});
 
 	function handleMessage(event: MessageEvent): void {
 		if (!isOriginAllowed(event.origin, origins)) return;
@@ -171,19 +180,7 @@ export function provideWidget(
 				break;
 		}
 
-		const handlers = messageHandlers.get(data.type);
-		if (handlers) {
-			for (const h of handlers) {
-				try {
-					h(data.payload);
-				} catch (e) {
-					console.warn(
-						"[widget-provider] message handler error:",
-						e,
-					);
-				}
-			}
-		}
+		pubsub.publish(data.type, data.payload);
 	}
 
 	globalThis.addEventListener("message", handleMessage);
@@ -201,10 +198,9 @@ export function provideWidget(
 		if (typeof triggerOpts === "object" && triggerOpts.style) {
 			Object.assign(triggerEl.style, triggerOpts.style);
 		}
-		const content =
-			typeof triggerOpts === "object" && triggerOpts.content
-				? triggerOpts.content
-				: DEFAULT_TRIGGER_ICON;
+		const content = typeof triggerOpts === "object" && triggerOpts.content
+			? triggerOpts.content
+			: DEFAULT_TRIGGER_ICON;
 		triggerEl.innerHTML = content;
 		if (visible) {
 			triggerEl.style.display = "none";
@@ -291,7 +287,7 @@ export function provideWidget(
 	function destroy(): void {
 		if (state.get().destroyed) return;
 		globalThis.removeEventListener("message", handleMessage);
-		messageHandlers.clear();
+		pubsub.unsubscribeAll();
 		iframe.src = "about:blank";
 		container.remove();
 		triggerEl?.remove();
@@ -316,15 +312,10 @@ export function provideWidget(
 		handler: MessageHandler<T>,
 	): Unsubscribe {
 		const prefixedType = `${MSG_PREFIX}${type}`;
-		if (!messageHandlers.has(prefixedType)) {
-			messageHandlers.set(prefixedType, new Set());
-		}
-		messageHandlers.get(prefixedType)!.add(handler as MessageHandler);
-		return () => {
-			messageHandlers.get(prefixedType)?.delete(
-				handler as MessageHandler,
-			);
-		};
+		return pubsub.subscribe(
+			prefixedType,
+			handler as MessageHandler,
+		);
 	}
 
 	return {

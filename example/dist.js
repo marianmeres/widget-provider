@@ -230,6 +230,284 @@ function applyIframeBaseStyles(iframe) {
     Object.assign(iframe.style, IFRAME_BASE);
 }
 const MSG_PREFIX = "@@__widget_provider__@@";
+const CLOG_STYLED = Symbol.for("@marianmeres/clog-styled");
+const COLORS = [
+    "#969696",
+    "#d26565",
+    "#cba14d",
+    "#8eba36",
+    "#3dc73d",
+    "#4dcba1",
+    "#67afd3",
+    "#8e8ed4",
+    "#b080c8",
+    "#be5b9d"
+];
+function autoColor(str) {
+    return COLORS[strHash(str) % COLORS.length];
+}
+function strHash(str) {
+    let hash = 0;
+    for(let i = 0; i < str.length; i++){
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return hash >>> 0;
+}
+const LEVEL_MAP = {
+    debug: "DEBUG",
+    log: "INFO",
+    warn: "WARNING",
+    error: "ERROR"
+};
+function _detectRuntime() {
+    if (typeof window !== "undefined" && window?.document) {
+        return "browser";
+    }
+    if (globalThis.Deno?.version?.deno) return "deno";
+    if (globalThis.process?.versions?.node) return "node";
+    return "unknown";
+}
+const GLOBAL_KEY = Symbol.for("@marianmeres/clog");
+const GLOBAL = globalThis[GLOBAL_KEY] ??= {
+    hook: undefined,
+    writer: undefined,
+    jsonOutput: false,
+    debug: undefined
+};
+function _processStyledArgs(args) {
+    let format = "";
+    const values = [];
+    for (const arg of args){
+        if (arg?.[CLOG_STYLED]) {
+            format += `%c${arg.text}%c `;
+            values.push(arg.style, "");
+        } else if (typeof arg === "string") {
+            format += `${arg} `;
+        } else {
+            format += "%o ";
+            values.push(arg);
+        }
+    }
+    return [
+        format.trim(),
+        values
+    ];
+}
+function _hasStyledArgs(args) {
+    return args.some((arg)=>arg?.[CLOG_STYLED]);
+}
+function _cleanStyledArgs(args) {
+    return args.map((arg)=>arg?.[CLOG_STYLED] ? arg.text : arg);
+}
+function _stringifyArgs(args, config) {
+    if (!(config?.stringify ?? GLOBAL.stringify)) return args;
+    return args.map((arg)=>{
+        if (arg === null || arg === undefined) return arg;
+        if (typeof arg !== "object") return arg;
+        if (arg?.[CLOG_STYLED]) return arg.text;
+        try {
+            return JSON.stringify(arg);
+        } catch  {
+            return String(arg);
+        }
+    });
+}
+function stringifyValue(arg) {
+    if (arg === null) return "null";
+    if (arg === undefined) return "undefined";
+    if (typeof arg !== "object") return String(arg);
+    if (arg?.[CLOG_STYLED]) return arg.text;
+    try {
+        return JSON.stringify(arg);
+    } catch  {
+        return String(arg);
+    }
+}
+function _captureStack(limit) {
+    const stack = new Error().stack || "";
+    const lines = stack.split("\n");
+    const relevant = lines.slice(5);
+    if (typeof limit === "number" && limit > 0) {
+        return relevant.slice(0, limit);
+    }
+    return relevant;
+}
+function _formatStack(lines) {
+    return "\n---\nStack:\n" + lines.map((v)=>"  " + v.trim()).join("\n");
+}
+const defaultWriter = (data)=>{
+    const { level, namespace, args, timestamp, config } = data;
+    const runtime = _detectRuntime();
+    const processedArgs = _stringifyArgs(args, config);
+    const stacktraceConfig = config?.stacktrace ?? GLOBAL.stacktrace;
+    const stackStr = stacktraceConfig ? _formatStack(_captureStack(typeof stacktraceConfig === "number" ? stacktraceConfig : undefined)) : null;
+    const consoleMethod = {
+        DEBUG: "debug",
+        INFO: "log",
+        WARNING: "warn",
+        ERROR: "error"
+    }[level];
+    const ns = namespace ? `[${namespace}]` : "";
+    const shouldConcat = config?.concat ?? GLOBAL.concat;
+    if (shouldConcat) {
+        const stringified = args.map(stringifyValue).join(" ");
+        const output = runtime === "browser" ? ns ? `${ns} ${stringified}` : stringified : `[${timestamp}] [${level}]${ns ? ` ${ns}` : ""} ${stringified}`;
+        console[consoleMethod](output, ...stackStr ? [
+            stackStr
+        ] : []);
+        return;
+    }
+    const hasStyled = _hasStyledArgs(processedArgs);
+    if ((runtime === "browser" || runtime === "deno") && hasStyled) {
+        const [content, contentValues] = _processStyledArgs(processedArgs);
+        if (runtime === "browser") {
+            console[consoleMethod](ns ? `${ns} ${content}` : content, ...contentValues, ...stackStr ? [
+                stackStr
+            ] : []);
+        } else {
+            const prefix = `[${timestamp}] [${level}]${ns ? ` ${ns}` : ""}`;
+            console[consoleMethod](`${prefix} ${content}`, ...contentValues, ...stackStr ? [
+                stackStr
+            ] : []);
+        }
+        return;
+    }
+    const cleanedArgs = _cleanStyledArgs(processedArgs);
+    if (runtime === "browser") {
+        if (ns) {
+            console[consoleMethod](ns, ...cleanedArgs, ...stackStr ? [
+                stackStr
+            ] : []);
+        } else {
+            console[consoleMethod](...cleanedArgs, ...stackStr ? [
+                stackStr
+            ] : []);
+        }
+    } else {
+        if (GLOBAL.jsonOutput) {
+            const output = {
+                timestamp,
+                level,
+                namespace,
+                message: cleanedArgs[0],
+                ...data.meta && {
+                    meta: data.meta
+                }
+            };
+            cleanedArgs.slice(1).forEach((arg, i)=>{
+                output[`arg_${i}`] = arg?.stack ?? arg;
+            });
+            if (stackStr) {
+                output.stack = stackStr;
+            }
+            console[consoleMethod](JSON.stringify(output));
+        } else {
+            const prefix = `[${timestamp}] [${level}]${ns ? ` ${ns}` : ""}`.trim();
+            console[consoleMethod](prefix, ...cleanedArgs, ...stackStr ? [
+                stackStr
+            ] : []);
+        }
+    }
+};
+const colorWriter = (color)=>(data)=>{
+        const { level, namespace, args, timestamp, config } = data;
+        const runtime = _detectRuntime();
+        if (runtime !== "browser" && runtime !== "deno" || !namespace) {
+            return defaultWriter(data);
+        }
+        if (config?.concat ?? GLOBAL.concat) {
+            return defaultWriter(data);
+        }
+        const processedArgs = _stringifyArgs(args, config);
+        const stacktraceConfig = config?.stacktrace ?? GLOBAL.stacktrace;
+        const stackStr = stacktraceConfig ? _formatStack(_captureStack(typeof stacktraceConfig === "number" ? stacktraceConfig : undefined)) : null;
+        const consoleMethod = {
+            DEBUG: "debug",
+            INFO: "log",
+            WARNING: "warn",
+            ERROR: "error"
+        }[level];
+        const ns = `[${namespace}]`;
+        if (color === "auto") {
+            color = autoColor(namespace);
+        }
+        if (_hasStyledArgs(processedArgs)) {
+            const [content, contentValues] = _processStyledArgs(processedArgs);
+            if (runtime === "browser") {
+                console[consoleMethod](`%c${ns}%c ${content}`, `color:${color}`, "", ...contentValues, ...stackStr ? [
+                    stackStr
+                ] : []);
+            } else {
+                const prefix = `[${timestamp}] [${level}] %c${ns}%c`;
+                console[consoleMethod](`${prefix} ${content}`, `color:${color}`, "", ...contentValues, ...stackStr ? [
+                    stackStr
+                ] : []);
+            }
+        } else {
+            if (runtime === "browser") {
+                console[consoleMethod](`%c${ns}`, `color:${color}`, ...processedArgs, ...stackStr ? [
+                    stackStr
+                ] : []);
+            } else {
+                const prefix = `[${timestamp}] [${level}] %c${ns}`;
+                console[consoleMethod](prefix, `color:${color}`, ...processedArgs, ...stackStr ? [
+                    stackStr
+                ] : []);
+            }
+        }
+    };
+function createClog(namespace, config) {
+    const ns = namespace ?? false;
+    const _apply = (level, args)=>{
+        const message = String(args[0] ?? "");
+        const getMetaFn = config?.getMeta ?? GLOBAL.getMeta;
+        const meta = getMetaFn?.();
+        const data = {
+            level: LEVEL_MAP[level],
+            namespace: ns,
+            args,
+            timestamp: new Date().toISOString(),
+            config,
+            meta
+        };
+        GLOBAL.hook?.(data);
+        let writer = GLOBAL.writer ?? config?.writer;
+        if (!writer && config?.color) {
+            writer = colorWriter(config.color);
+        }
+        writer = writer ?? defaultWriter;
+        writer(data);
+        return message;
+    };
+    const logger = (...args)=>_apply("log", args);
+    logger.debug = (...args)=>{
+        if ((config?.debug ?? GLOBAL.debug) === false) {
+            return String(args[0] ?? "");
+        }
+        return _apply("debug", args);
+    };
+    logger.log = (...args)=>_apply("log", args);
+    logger.warn = (...args)=>_apply("warn", args);
+    logger.error = (...args)=>_apply("error", args);
+    Object.defineProperty(logger, "ns", {
+        value: ns,
+        writable: false
+    });
+    return logger;
+}
+createClog.global = GLOBAL;
+createClog.reset = ()=>{
+    createClog.global.hook = undefined;
+    createClog.global.writer = undefined;
+    createClog.global.jsonOutput = false;
+    createClog.global.debug = undefined;
+    createClog.global.stringify = undefined;
+    createClog.global.concat = undefined;
+    createClog.global.stacktrace = undefined;
+    createClog.global.getMeta = undefined;
+};
+const clog = createClog("widget-provider");
 const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 function resolveAllowedOrigins(explicit, widgetUrl) {
     if (explicit) {
@@ -298,7 +576,11 @@ function provideWidget(options) {
             Object.assign(container.style, anim.hidden);
         }
     }
-    const messageHandlers = new Map();
+    const pubsub = createPubSub({
+        onError: (error)=>{
+            clog.warn("message handler error:", error);
+        }
+    });
     function handleMessage(event) {
         if (!isOriginAllowed(event.origin, origins)) return;
         if (event.source !== iframe.contentWindow) return;
@@ -337,16 +619,7 @@ function provideWidget(options) {
                 exitNativeFullscreen();
                 break;
         }
-        const handlers = messageHandlers.get(data.type);
-        if (handlers) {
-            for (const h of handlers){
-                try {
-                    h(data.payload);
-                } catch (e) {
-                    console.warn("[widget-provider] message handler error:", e);
-                }
-            }
-        }
+        pubsub.publish(data.type, data.payload);
     }
     globalThis.addEventListener("message", handleMessage);
     const appendTarget = parentContainer || document.body;
@@ -445,7 +718,7 @@ function provideWidget(options) {
     function destroy() {
         if (state.get().destroyed) return;
         globalThis.removeEventListener("message", handleMessage);
-        messageHandlers.clear();
+        pubsub.unsubscribeAll();
         iframe.src = "about:blank";
         container.remove();
         triggerEl?.remove();
@@ -465,13 +738,7 @@ function provideWidget(options) {
     }
     function onMessage(type, handler) {
         const prefixedType = `${MSG_PREFIX}${type}`;
-        if (!messageHandlers.has(prefixedType)) {
-            messageHandlers.set(prefixedType, new Set());
-        }
-        messageHandlers.get(prefixedType).add(handler);
-        return ()=>{
-            messageHandlers.get(prefixedType)?.delete(handler);
-        };
+        return pubsub.subscribe(prefixedType, handler);
     }
     return {
         show,
@@ -498,6 +765,6 @@ function provideWidget(options) {
         }
     };
 }
-export { provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, isOriginAllowed as isOriginAllowed, resolveAnimateConfig as resolveAnimateConfig };
+export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { MSG_PREFIX as MSG_PREFIX };
-export { STYLE_PRESETS as STYLE_PRESETS, IFRAME_BASE as IFRAME_BASE, ANIMATE_PRESETS as ANIMATE_PRESETS };
+export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, STYLE_PRESETS as STYLE_PRESETS };

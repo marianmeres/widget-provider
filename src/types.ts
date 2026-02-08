@@ -67,10 +67,10 @@ export interface WidgetProviderOptions {
 		| boolean
 		| AnimatePreset
 		| {
-				preset?: AnimatePreset;
-				/** CSS transition shorthand override */
-				transition?: string;
-		  };
+			preset?: AnimatePreset;
+			/** CSS transition shorthand override */
+			transition?: string;
+		};
 
 	/**
 	 * Built-in floating trigger button.
@@ -80,11 +80,11 @@ export interface WidgetProviderOptions {
 	trigger?:
 		| boolean
 		| {
-				/** HTML content for the button (e.g. SVG icon). Defaults to a chat bubble SVG. */
-				content?: string;
-				/** CSS overrides for the trigger button */
-				style?: Partial<CSSStyleDeclaration>;
-		  };
+			/** HTML content for the button (e.g. SVG icon). Defaults to a chat bubble SVG. */
+			content?: string;
+			/** CSS overrides for the trigger button */
+			style?: Partial<CSSStyleDeclaration>;
+		};
 }
 
 /** Reactive state tracked in the store */
