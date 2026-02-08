@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>widget-provider demo</title>
+		<style>
+			body {
+				font-family: system-ui, sans-serif;
+				margin: 2rem;
+			}
+			.controls {
+				display: flex;
+				gap: 0.5rem;
+				margin-bottom: 1rem;
+				flex-wrap: wrap;
+			}
+			button {
+				padding: 0.4rem 0.8rem;
+				cursor: pointer;
+			}
+			#state {
+				font-family: monospace;
+				font-size: 0.85rem;
+				background: #f0f4f8;
+				padding: 0.5rem;
+				margin-bottom: 1rem;
+			}
+			#log {
+				font-family: monospace;
+				font-size: 0.85rem;
+				background: #fff;
+				border: 1px solid #ccc;
+				padding: 0.5rem;
+				max-height: 300px;
+				overflow: auto;
+			}
+			#inline-container {
+				width: 400px;
+				height: 300px;
+				border: 2px dashed #999;
+				margin-bottom: 1rem;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>@marianmeres/widget-provider demo</h1>
+
+		<h2>Inline preset</h2>
+		<div id="inline-container"></div>
+
+		<h2>Controls</h2>
+		<div class="controls">
+			<button id="btn-show">show()</button>
+			<button id="btn-hide">hide()</button>
+			<button id="btn-toggle">toggle()</button>
+			<button id="btn-send">send("hello")</button>
+			<button id="btn-destroy">destroy()</button>
+			<button id="btn-float">Create float widget</button>
+			<button id="btn-fullscreen">Create fullscreen widget</button>
+			<button id="btn-trigger">Create widget with trigger</button>
+		</div>
+
+		<h2>State</h2>
+		<div id="state">--</div>
+
+		<h2>Message log</h2>
+		<div id="log"></div>
+
+		<script type="module">
+			// For npm/jsr usage: import { provideWidget } from '@marianmeres/widget-provider'
+			import { provideWidget } from "./dist.js";
+
+			const logEl = document.getElementById("log");
+			const stateEl = document.getElementById("state");
+
+			function addLog(msg) {
+				const div = document.createElement("div");
+				div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+				logEl.prepend(div);
+			}
+
+			// Create inline widget
+			const widget = provideWidget({
+				widgetUrl: "./widget.html",
+				parentContainer: document.getElementById("inline-container"),
+				stylePreset: "inline",
+				allowedOrigin: "*",
+			});
+
+			// Subscribe to state changes
+			widget.subscribe((state) => {
+				stateEl.textContent = JSON.stringify(state);
+			});
+
+			// Listen for messages
+			widget.onMessage("echo", (payload) => {
+				addLog(`echo: ${JSON.stringify(payload)}`);
+			});
+
+			widget.onMessage("ping", (payload) => {
+				addLog(`ping from widget: ${JSON.stringify(payload)}`);
+			});
+
+			widget.onMessage("ready", () => {
+				addLog("Widget is ready!");
+			});
+
+			// Controls
+			document.getElementById("btn-show").onclick = () => widget.show();
+			document.getElementById("btn-hide").onclick = () => widget.hide();
+			document.getElementById("btn-toggle").onclick = () =>
+				widget.toggle();
+			document.getElementById("btn-destroy").onclick = () =>
+				widget.destroy();
+			document.getElementById("btn-send").onclick = () => {
+				widget.send("hello", { greeting: "Hi from host!" });
+				addLog("Sent: hello");
+			};
+
+			// helper to wire up common message handlers on any widget
+			function wireMessages(w, label) {
+				w.onMessage("echo", (payload) => {
+					addLog(`[${label}] echo: ${JSON.stringify(payload)}`);
+				});
+				w.onMessage("ping", (payload) => {
+					addLog(`[${label}] ping: ${JSON.stringify(payload)}`);
+				});
+				w.onMessage("ready", () => {
+					addLog(`[${label}] ready`);
+				});
+			}
+
+			// Float widget
+			let floatWidget = null;
+			document.getElementById("btn-float").onclick = () => {
+				if (floatWidget) floatWidget.destroy();
+				floatWidget = provideWidget({
+					widgetUrl: "./widget.html",
+					stylePreset: "float",
+					allowedOrigin: "*",
+					animate: "fade-scale",
+				});
+				wireMessages(floatWidget, "float");
+				addLog("Created float widget");
+			};
+
+			// Fullscreen widget (click container backdrop to hide)
+			document.getElementById("btn-fullscreen").onclick = () => {
+				const fs = provideWidget({
+					widgetUrl: "./widget.html",
+					stylePreset: "fullscreen",
+					allowedOrigin: "*",
+					styleOverrides: { cursor: "pointer" },
+				});
+				wireMessages(fs, "fullscreen");
+				fs.container.addEventListener("click", (e) => {
+					if (e.target === fs.container) fs.destroy();
+				});
+				addLog("Created fullscreen widget (click backdrop to close)");
+			};
+
+			// Widget with built-in trigger button
+			let triggerWidget = null;
+			document.getElementById("btn-trigger").onclick = () => {
+				if (triggerWidget) triggerWidget.destroy();
+				triggerWidget = provideWidget({
+					widgetUrl: "./widget.html",
+					stylePreset: "float",
+					visible: false,
+					allowedOrigin: "*",
+					trigger: true,
+					animate: "fade-scale",
+				});
+				wireMessages(triggerWidget, "trigger");
+				addLog("Created widget with trigger (click the blue button)");
+			};
+		</script>
+	</body>
+</html>

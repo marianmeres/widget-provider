@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Mock Widget</title>
+		<style>
+			body {
+				margin: 0;
+				font-family: system-ui, sans-serif;
+				padding: 1rem;
+				background: #f0f4f8;
+			}
+			h3 {
+				margin-top: 0;
+			}
+			#log {
+				font-size: 0.85rem;
+				font-family: monospace;
+				background: #fff;
+				border: 1px solid #ccc;
+				padding: 0.5rem;
+				max-height: 200px;
+				overflow: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<h3>Widget (iframe)</h3>
+		<p>This is a mock widget SPA running inside an iframe.</p>
+		<button id="btn-ping">Send ping to host</button>
+		<button id="btn-maximize">Maximize</button>
+		<button id="btn-minimize">Minimize</button>
+		<button id="btn-hide">Hide</button>
+		<button id="btn-close">Close</button>
+		<button id="btn-native-fs">Native Fullscreen</button>
+		<button id="btn-exit-fs">Exit Fullscreen</button>
+		<div id="log"></div>
+
+		<script>
+			const PREFIX = "@@__widget_provider__@@";
+			const log = document.getElementById("log");
+
+			function addLog(msg) {
+				const div = document.createElement("div");
+				div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+				log.prepend(div);
+			}
+
+			// Listen for messages from host
+			window.addEventListener("message", (event) => {
+				const data = event.data;
+				if (!data || typeof data.type !== "string") return;
+				if (!data.type.startsWith(PREFIX)) return;
+
+				const type = data.type.slice(PREFIX.length);
+				addLog(
+					`Received: ${type} ${JSON.stringify(data.payload ?? "")}`,
+				);
+
+				// Echo back
+				parent.postMessage(
+					{
+						type: `${PREFIX}echo`,
+						payload: { original: type, data: data.payload },
+					},
+					"*",
+				);
+			});
+
+			// Send ready signal
+			parent.postMessage({ type: `${PREFIX}ready` }, "*");
+			addLog("Sent: ready");
+
+			// Control buttons
+			function sendControl(type) {
+				parent.postMessage({ type: `${PREFIX}${type}` }, "*");
+				addLog(`Sent: ${type}`);
+			}
+
+			document
+				.getElementById("btn-ping")
+				.addEventListener("click", () => {
+					parent.postMessage(
+						{
+							type: `${PREFIX}ping`,
+							payload: { time: Date.now() },
+						},
+						"*",
+					);
+					addLog("Sent: ping");
+				});
+			document
+				.getElementById("btn-maximize")
+				.addEventListener("click", () => sendControl("maximize"));
+			document
+				.getElementById("btn-minimize")
+				.addEventListener("click", () => sendControl("minimize"));
+			document
+				.getElementById("btn-hide")
+				.addEventListener("click", () => sendControl("hide"));
+			document
+				.getElementById("btn-close")
+				.addEventListener("click", () => sendControl("close"));
+			document
+				.getElementById("btn-native-fs")
+				.addEventListener("click", () => {
+					document.documentElement.requestFullscreen();
+					addLog("Requested native fullscreen");
+				});
+			document
+				.getElementById("btn-exit-fs")
+				.addEventListener("click", () => {
+					document.exitFullscreen();
+					addLog("Exited native fullscreen");
+				});
+		</script>
+	</body>
+</html>
