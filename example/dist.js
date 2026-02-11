@@ -134,12 +134,39 @@ const createStore = (initial, options = null)=>{
     };
 };
 new Map();
+const iconGrip = `
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="5" r="1" />
+  <circle cx="19" cy="5" r="1" />
+  <circle cx="5" cy="5" r="1" />
+  <circle cx="12" cy="12" r="1" />
+  <circle cx="19" cy="12" r="1" />
+  <circle cx="5" cy="12" r="1" />
+  <circle cx="12" cy="19" r="1" />
+  <circle cx="19" cy="19" r="1" />
+  <circle cx="5" cy="19" r="1" />
+</svg>
+`;
 function makeDraggable(container, iframe, options = {}) {
     const handleHeight = options.handleHeight ?? 24;
     const boundaryPadding = options.boundaryPadding ?? 20;
     const handle = document.createElement("div");
     Object.assign(handle.style, {
-        width: "100%",
+        position: "absolute",
+        top: "0",
+        left: "0",
+        zIndex: "1",
+        width: `${handleHeight}px`,
         height: `${handleHeight}px`,
         cursor: "grab",
         display: "flex",
@@ -147,22 +174,21 @@ function makeDraggable(container, iframe, options = {}) {
         justifyContent: "center",
         userSelect: "none",
         touchAction: "none",
-        flexShrink: "0"
+        opacity: "0.4",
+        color: "inherit"
     });
     if (options.handleStyle) {
         Object.assign(handle.style, options.handleStyle);
     }
-    const grip = document.createElement("span");
-    Object.assign(grip.style, {
-        width: "32px",
-        height: "4px",
-        borderRadius: "2px",
-        background: "rgba(128,128,128,0.35)",
-        pointerEvents: "none"
-    });
-    handle.appendChild(grip);
-    container.insertBefore(handle, iframe);
-    iframe.style.height = `calc(100% - ${handleHeight}px)`;
+    handle.innerHTML = iconGrip;
+    const svg = handle.querySelector("svg");
+    if (svg) {
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+        svg.style.pointerEvents = "none";
+    }
+    container.style.position ||= "relative";
+    container.appendChild(handle);
     let isDragging = false;
     let startX = 0;
     let startY = 0;
@@ -229,7 +255,6 @@ function makeDraggable(container, iframe, options = {}) {
             container.style.transition = savedTransition;
         }
         handle.remove();
-        iframe.style.height = "100%";
     }
     return {
         get handleEl () {

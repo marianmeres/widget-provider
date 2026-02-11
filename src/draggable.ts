@@ -1,4 +1,5 @@
 import type { DraggableHandle, DraggableOptions } from "./types.ts";
+import { iconGrip } from "./iconGrip.ts";
 
 const DEFAULT_HANDLE_HEIGHT = 24;
 const DEFAULT_BOUNDARY_PADDING = 20;
@@ -18,12 +19,16 @@ export function makeDraggable(
 	const handleHeight = options.handleHeight ?? DEFAULT_HANDLE_HEIGHT;
 	const boundaryPadding = options.boundaryPadding ?? DEFAULT_BOUNDARY_PADDING;
 
-	// --- handle element ---
+	// --- handle element (floating grip in top-left corner) ---
 	const handle = document.createElement("div");
 	Object.assign(
 		handle.style,
 		{
-			width: "100%",
+			position: "absolute",
+			top: "0",
+			left: "0",
+			zIndex: "1",
+			width: `${handleHeight}px`,
 			height: `${handleHeight}px`,
 			cursor: "grab",
 			display: "flex",
@@ -31,7 +36,8 @@ export function makeDraggable(
 			justifyContent: "center",
 			userSelect: "none",
 			touchAction: "none",
-			flexShrink: "0",
+			opacity: "0.4",
+			color: "inherit",
 		} satisfies Partial<CSSStyleDeclaration>,
 	);
 
@@ -39,23 +45,18 @@ export function makeDraggable(
 		Object.assign(handle.style, options.handleStyle);
 	}
 
-	// grip indicator
-	const grip = document.createElement("span");
-	Object.assign(
-		grip.style,
-		{
-			width: "32px",
-			height: "4px",
-			borderRadius: "2px",
-			background: "rgba(128,128,128,0.35)",
-			pointerEvents: "none",
-		} satisfies Partial<CSSStyleDeclaration>,
-	);
-	handle.appendChild(grip);
+	// grip icon
+	handle.innerHTML = iconGrip;
+	const svg = handle.querySelector("svg");
+	if (svg) {
+		svg.style.width = "100%";
+		svg.style.height = "100%";
+		svg.style.pointerEvents = "none";
+	}
 
-	// insert handle before iframe and adjust iframe height
-	container.insertBefore(handle, iframe);
-	iframe.style.height = `calc(100% - ${handleHeight}px)`;
+	// insert handle as an overlay (no layout impact on iframe)
+	container.style.position ||= "relative";
+	container.appendChild(handle);
 
 	// --- drag state ---
 	let isDragging = false;
@@ -151,7 +152,6 @@ export function makeDraggable(
 			container.style.transition = savedTransition;
 		}
 		handle.remove();
-		iframe.style.height = "100%";
 	}
 
 	return {
