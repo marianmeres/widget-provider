@@ -45,6 +45,14 @@ export interface DraggableHandle {
 	resetPosition(): void;
 }
 
+/** Configuration for the placeholder left behind when a widget is detached */
+export interface PlaceholderOptions {
+	/** CSS overrides for the placeholder div */
+	style?: Partial<CSSStyleDeclaration>;
+	/** HTML content inside the placeholder (e.g., informational text) */
+	content?: string;
+}
+
 /** Configuration options for {@linkcode provideWidget} */
 export interface WidgetProviderOptions {
 	/** The URL of the SPA to embed */
@@ -116,6 +124,14 @@ export interface WidgetProviderOptions {
 	 * - object → enable with custom options
 	 */
 	draggable?: boolean | DraggableOptions;
+
+	/**
+	 * Configuration for the placeholder element left behind when detach() is called.
+	 * Only relevant when stylePreset is "inline" and parentContainer is set.
+	 * - `true` → enable with defaults
+	 * - object → enable with custom options
+	 */
+	placeholder?: boolean | PlaceholderOptions;
 }
 
 /** Reactive state tracked in the store */
@@ -125,6 +141,8 @@ export interface WidgetState {
 	destroyed: boolean;
 	preset: StylePreset;
 	heightState: HeightState;
+	/** Whether the widget has been detached from its parentContainer */
+	detached: boolean;
 }
 
 /** Control API returned by {@linkcode provideWidget} */
@@ -153,6 +171,19 @@ export interface WidgetProviderApi {
 	requestNativeFullscreen(): Promise<void>;
 	/** Exit native browser fullscreen */
 	exitNativeFullscreen(): Promise<void>;
+	/**
+	 * Detach an inline widget from its parentContainer and float it on document.body.
+	 * Moves the DOM node (preserving iframe state). Leaves a placeholder in the
+	 * original position. Only works when preset is "inline" and a parentContainer
+	 * exists. No-op if already detached or destroyed.
+	 */
+	detach(): void;
+	/**
+	 * Dock a previously detached widget back into its original parentContainer,
+	 * replacing the placeholder. Restores the inline preset. No-op if not
+	 * currently detached or if destroyed.
+	 */
+	dock(): void;
 	/** Send a typed message to the iframe */
 	send<T = unknown>(type: string, payload?: T): void;
 	/** Listen for a typed message from the iframe. Returns unsubscribe. */
@@ -170,4 +201,6 @@ export interface WidgetProviderApi {
 	readonly container: HTMLElement;
 	/** Direct reference to the trigger button element, or null if not configured */
 	readonly trigger: HTMLElement | null;
+	/** Direct reference to the placeholder element, or null if not detached */
+	readonly placeholder: HTMLElement | null;
 }

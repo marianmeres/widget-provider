@@ -30,17 +30,17 @@ Built-in control messages (from iframe):
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
+| File                     | Purpose                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
 | `src/widget-provider.ts` | `provideWidget()` factory — creates DOM, wires messaging, returns API |
-| `src/types.ts` | All types, interfaces, `MSG_PREFIX` constant |
-| `src/style-presets.ts` | CSS preset objects, animation configs, apply functions |
-| `src/mod.ts` | Public barrel export |
+| `src/types.ts`           | All types, interfaces, `MSG_PREFIX` constant                          |
+| `src/style-presets.ts`   | CSS preset objects, animation configs, apply functions                |
+| `src/mod.ts`             | Public barrel export                                                  |
 
 ## External Dependencies
 
-| Dependency | Purpose |
-|------------|---------|
+| Dependency           | Purpose                                                    |
+| -------------------- | ---------------------------------------------------------- |
 | `@marianmeres/store` | Reactive state store (Svelte-compatible subscribe pattern) |
 
 ## Security Boundaries

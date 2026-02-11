@@ -56,7 +56,7 @@ const PRESET_FULLSCREEN: CSSProps = {
 	width: "100vw",
 	height: "100vh",
 	zIndex: "10000",
-	padding: "2rem",
+	padding: "0",
 	backgroundColor: "rgba(0,0,0,0.5)",
 };
 
@@ -91,6 +91,22 @@ export const STYLE_PRESETS: Record<StylePreset, CSSProps> = {
 	float: PRESET_FLOAT,
 	fullscreen: PRESET_FULLSCREEN,
 	inline: PRESET_INLINE,
+};
+
+/** Default CSS styles for the detach placeholder element */
+export const PLACEHOLDER_BASE: CSSProps = {
+	boxSizing: "border-box",
+	width: "100%",
+	height: "100%",
+	border: "2px dashed rgba(128, 128, 128, 0.4)",
+	borderRadius: "8px",
+	background: "rgba(128, 128, 128, 0.06)",
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "center",
+	color: "rgba(128, 128, 128, 0.6)",
+	fontSize: "0.85rem",
+	fontFamily: "system-ui, sans-serif",
 };
 
 export function applyPreset(

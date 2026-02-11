@@ -13,6 +13,7 @@ export type {
 	DraggableOptions,
 	HeightState,
 	MessageHandler,
+	PlaceholderOptions,
 	StyleOverrides,
 	StylePreset,
 	Unsubscribe,
@@ -28,5 +29,6 @@ export {
 	ANIMATE_PRESETS,
 	type AnimateConfig,
 	IFRAME_BASE,
+	PLACEHOLDER_BASE,
 	STYLE_PRESETS,
 } from "./style-presets.ts";

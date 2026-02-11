@@ -33,19 +33,21 @@
 		<button id="btn-max-height">Max Height</button>
 		<button id="btn-min-height">Min Height</button>
 		<button id="btn-reset-height">Reset Height</button>
+		<button id="btn-detach">Detach</button>
+		<button id="btn-dock">Dock</button>
 		<button id="btn-hide">Hide</button>
 		<button id="btn-close">Close</button>
 		<button id="btn-native-fs">Native Fullscreen</button>
 		<button id="btn-exit-fs">Exit Fullscreen</button>
-		<div id="height-state"
-			style="font-family: monospace; font-size: 0.85rem; background: #e8f0fe; padding: 0.5rem; margin: 0.5rem 0;"
-		>heightState: --</div>
+		<pre id="height-state">heightState: --</pre>
+		<pre id="detached-state">detached: --</pre>
 		<div id="log"></div>
 
 		<script>
 			const PREFIX = "@@__widget_provider__@@";
 			const log = document.getElementById("log");
 			const heightStateEl = document.getElementById("height-state");
+			const detachedStateEl = document.getElementById("detached-state");
 
 			function addLog(msg) {
 				const div = document.createElement("div");
@@ -66,6 +68,10 @@
 
 				if (type === "heightState") {
 					heightStateEl.textContent = `heightState: ${data.payload}`;
+				}
+
+				if (type === "detached") {
+					detachedStateEl.textContent = `detached: ${data.payload}`;
 				}
 
 				// Echo back
@@ -115,6 +121,12 @@
 			document
 				.getElementById("btn-reset-height")
 				.addEventListener("click", () => sendControl("resetHeight"));
+			document
+				.getElementById("btn-detach")
+				.addEventListener("click", () => sendControl("detach"));
+			document
+				.getElementById("btn-dock")
+				.addEventListener("click", () => sendControl("dock"));
 			document
 				.getElementById("btn-hide")
 				.addEventListener("click", () => sendControl("hide"));

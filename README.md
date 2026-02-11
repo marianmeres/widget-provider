@@ -5,7 +5,8 @@
 [![License](https://img.shields.io/npm/l/@marianmeres/widget-provider)](LICENSE)
 
 Embed an iframe-based widget into a host page with built-in positioning presets,
-bidirectional postMessage communication, show/hide animations, and reactive state.
+bidirectional postMessage communication, show/hide animations, drag-and-drop,
+detach/dock workflow, and reactive state.
 
 ## Installation
 
@@ -22,13 +23,14 @@ deno add jsr:@marianmeres/widget-provider
 ## Usage
 
 ```typescript
-import { provideWidget } from '@marianmeres/widget-provider';
+import { provideWidget } from "@marianmeres/widget-provider";
 
 const widget = provideWidget({
-    widgetUrl: 'https://example.com/my-widget',
-    stylePreset: 'float',        // "float" | "fullscreen" | "inline"
-    animate: true,               // fade-scale animation
-    trigger: true,               // show floating trigger button when hidden
+	widgetUrl: "https://example.com/my-widget",
+	stylePreset: "float", // "float" | "fullscreen" | "inline"
+	animate: true, // fade-scale animation
+	trigger: true, // show floating trigger button when hidden
+	draggable: true, // drag handle for float preset
 });
 
 // Control visibility
@@ -36,17 +38,22 @@ widget.show();
 widget.hide();
 widget.toggle();
 
+// Height control (float/fullscreen only — no-op when inline)
+widget.maximizeHeight();
+widget.minimizeHeight();
+widget.resetHeight();
+
 // Send messages to the iframe
-widget.send('greet', { name: 'World' });
+widget.send("greet", { name: "World" });
 
 // Listen for messages from the iframe
-const unsub = widget.onMessage('response', (payload) => {
-    console.log(payload);
+const unsub = widget.onMessage("response", (payload) => {
+	console.log(payload);
 });
 
 // Subscribe to reactive state changes
 widget.subscribe((state) => {
-    console.log(state.visible, state.ready);
+	console.log(state.visible, state.ready, state.heightState, state.detached);
 });
 
 // Clean up
@@ -55,17 +62,36 @@ widget.destroy();
 
 ### Style Presets
 
-| Preset | Description |
-|--------|-------------|
-| `"inline"` | Flows within parent container (default) |
-| `"float"` | Fixed bottom-right chat-widget style |
-| `"fullscreen"` | Covers viewport with backdrop overlay |
+| Preset         | Description                             |
+| -------------- | --------------------------------------- |
+| `"inline"`     | Flows within parent container (default) |
+| `"float"`      | Fixed bottom-right chat-widget style    |
+| `"fullscreen"` | Covers viewport with backdrop overlay   |
+
+### Detach / Dock (inline only)
+
+An inline widget can be temporarily detached from its parent container and floated
+on `document.body`, leaving a placeholder behind. Dock returns it to the original
+position.
+
+```typescript
+const widget = provideWidget({
+	widgetUrl: "https://example.com/my-widget",
+	parentContainer: document.getElementById("sidebar")!,
+	stylePreset: "inline",
+	placeholder: { content: "Widget is floating..." },
+});
+
+widget.detach(); // moves to body, switches to float style
+widget.dock(); // returns to sidebar, restores inline style
+```
 
 ### Message Protocol
 
 Messages between the host and iframe are namespaced with `@@__widget_provider__@@`
 prefix. The iframe can send built-in control messages: `ready`, `maximize`, `minimize`,
-`hide`, `close`, `setPreset`, `nativeFullscreen`, `exitNativeFullscreen`.
+`maximizeHeight`, `minimizeHeight`, `resetHeight`, `hide`, `close`, `setPreset`,
+`detach`, `dock`, `nativeFullscreen`, `exitNativeFullscreen`.
 
 ## API
 

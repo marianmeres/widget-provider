@@ -5,6 +5,7 @@ import {
 	type AnimateConfig,
 	applyIframeBaseStyles,
 	applyPreset,
+	PLACEHOLDER_BASE,
 	STYLE_PRESETS,
 	TRIGGER_BASE,
 } from "./style-presets.ts";
@@ -13,6 +14,7 @@ import {
 	type DraggableOptions,
 	type MessageHandler,
 	MSG_PREFIX,
+	type PlaceholderOptions,
 	type StylePreset,
 	type Unsubscribe,
 	type WidgetMessage,
@@ -104,6 +106,7 @@ export function provideWidget(
 		destroyed: false,
 		preset: stylePreset,
 		heightState: "normal",
+		detached: false,
 	});
 
 	// DOM
@@ -156,6 +159,7 @@ export function provideWidget(
 			case "ready":
 				state.update((s) => ({ ...s, ready: true }));
 				send("heightState", state.get().heightState);
+				send("detached", state.get().detached);
 				break;
 			case "maximize":
 				maximize();
@@ -190,6 +194,12 @@ export function provideWidget(
 					setPreset(data.payload as StylePreset);
 				}
 				break;
+			case "detach":
+				detach();
+				break;
+			case "dock":
+				dock();
+				break;
 			case "nativeFullscreen":
 				requestNativeFullscreen();
 				break;
@@ -206,6 +216,13 @@ export function provideWidget(
 	// append to DOM
 	const appendTarget = parentContainer || document.body;
 	appendTarget.appendChild(container);
+
+	// detach/dock state
+	let placeholderEl: HTMLElement | null = null;
+	let originalParent: HTMLElement | null = null;
+	let presetBeforeDetach: StylePreset | null = null;
+	const resolvePlaceholderOpts = (): PlaceholderOptions =>
+		typeof options.placeholder === "object" ? options.placeholder : {};
 
 	// draggable (float only)
 	let draggableHandle: DraggableHandle | null = null;
@@ -290,6 +307,11 @@ export function provideWidget(
 	function setPreset(preset: StylePreset): void {
 		if (state.get().destroyed) return;
 		if (!(preset in STYLE_PRESETS)) return;
+		// If detached and requesting inline, dock instead
+		if (state.get().detached && preset === "inline") {
+			dock();
+			return;
+		}
 		teardownDraggable();
 		container.style.cssText = "";
 		applyPreset(container, preset, styleOverrides);
@@ -317,6 +339,7 @@ export function provideWidget(
 
 	function maximizeHeight(offset?: number): void {
 		if (state.get().destroyed) return;
+		if (state.get().preset === "inline") return;
 		teardownDraggable();
 		// Full reset to preset position first (clears any drag positioning)
 		container.style.cssText = "";
@@ -346,6 +369,7 @@ export function provideWidget(
 
 	function minimizeHeight(height?: number): void {
 		if (state.get().destroyed) return;
+		if (state.get().preset === "inline") return;
 		teardownDraggable();
 		// Restore original preset positioning (e.g. bottom-anchored for float)
 		// before overriding height
@@ -368,6 +392,7 @@ export function provideWidget(
 
 	function resetHeight(): void {
 		if (state.get().destroyed) return;
+		if (state.get().preset === "inline") return;
 		setPreset(state.get().preset);
 	}
 
@@ -383,6 +408,11 @@ export function provideWidget(
 
 	function destroy(): void {
 		if (state.get().destroyed) return;
+		// Clean up placeholder if detached
+		if (state.get().detached) {
+			placeholderEl?.remove();
+			placeholderEl = null;
+		}
 		teardownDraggable();
 		globalThis.removeEventListener("message", handleMessage);
 		pubsub.unsubscribeAll();
@@ -395,7 +425,122 @@ export function provideWidget(
 			destroyed: true,
 			preset: s.preset,
 			heightState: s.heightState,
+			detached: false,
 		}));
+	}
+
+	function detach(): void {
+		const s = state.get();
+		if (s.destroyed || s.detached) return;
+
+		if (!parentContainer) {
+			clog.warn("detach() requires a parentContainer");
+			return;
+		}
+
+		if (s.preset !== "inline") {
+			clog.warn(
+				`detach() only works with "inline" preset (current: "${s.preset}")`,
+			);
+			return;
+		}
+
+		// Remember where we were
+		originalParent = parentContainer;
+		presetBeforeDetach = s.preset;
+
+		// Capture current dimensions for the placeholder
+		const rect = container.getBoundingClientRect();
+
+		// Create placeholder
+		placeholderEl = document.createElement("div");
+		const placeholderOpts = resolvePlaceholderOpts();
+		Object.assign(placeholderEl.style, PLACEHOLDER_BASE);
+		placeholderEl.style.width = `${rect.width}px`;
+		placeholderEl.style.height = `${rect.height}px`;
+		if (placeholderOpts.style) {
+			Object.assign(placeholderEl.style, placeholderOpts.style);
+		}
+		if (placeholderOpts.content) {
+			placeholderEl.innerHTML = placeholderOpts.content;
+		}
+
+		// Insert placeholder in the original position
+		originalParent.insertBefore(placeholderEl, container);
+
+		// Move the container to document.body (preserves iframe state!)
+		document.body.appendChild(container);
+
+		// Switch visual style to float
+		teardownDraggable();
+		container.style.cssText = "";
+		applyPreset(container, "float", styleOverrides);
+		if (anim) {
+			container.style.transition = anim.transition;
+		}
+		if (!s.visible) {
+			container.style.display = "none";
+			if (anim) {
+				Object.assign(container.style, anim.hidden);
+			}
+		}
+
+		// Update state
+		state.update((st) => ({
+			...st,
+			preset: "float",
+			detached: true,
+			heightState: "normal",
+		}));
+
+		setupDraggable();
+
+		send("detached", true);
+		send("heightState", "normal");
+	}
+
+	function dock(): void {
+		const s = state.get();
+		if (s.destroyed || !s.detached) return;
+		if (!originalParent || !placeholderEl) return;
+
+		teardownDraggable();
+
+		// Move container back to original parent, replacing placeholder
+		originalParent.insertBefore(container, placeholderEl);
+		placeholderEl.remove();
+		placeholderEl = null;
+
+		// Restore inline style
+		const restorePreset = presetBeforeDetach ?? "inline";
+		container.style.cssText = "";
+		applyPreset(container, restorePreset, styleOverrides);
+		if (anim) {
+			container.style.transition = anim.transition;
+		}
+		if (!s.visible) {
+			container.style.display = "none";
+			if (anim) {
+				Object.assign(container.style, anim.hidden);
+			}
+		}
+
+		// Update state
+		state.update((st) => ({
+			...st,
+			preset: restorePreset,
+			detached: false,
+			heightState: "normal",
+		}));
+
+		setupDraggable();
+
+		send("detached", false);
+		send("heightState", "normal");
+
+		// Clean up references
+		originalParent = null;
+		presetBeforeDetach = null;
 	}
 
 	function send<T = unknown>(type: string, payload?: T): void {
@@ -430,6 +575,8 @@ export function provideWidget(
 		resetHeight,
 		requestNativeFullscreen,
 		exitNativeFullscreen,
+		detach,
+		dock,
 		send,
 		onMessage,
 		subscribe: state.subscribe,
@@ -442,6 +589,9 @@ export function provideWidget(
 		},
 		get trigger() {
 			return triggerEl;
+		},
+		get placeholder() {
+			return placeholderEl;
 		},
 	};
 }

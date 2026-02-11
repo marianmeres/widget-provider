@@ -292,7 +292,7 @@ const PRESET_FULLSCREEN = {
     width: "100vw",
     height: "100vh",
     zIndex: "10000",
-    padding: "2rem",
+    padding: "0",
     backgroundColor: "rgba(0,0,0,0.5)"
 };
 const PRESET_INLINE = {
@@ -323,6 +323,20 @@ const STYLE_PRESETS = {
     float: PRESET_FLOAT,
     fullscreen: PRESET_FULLSCREEN,
     inline: PRESET_INLINE
+};
+const PLACEHOLDER_BASE = {
+    boxSizing: "border-box",
+    width: "100%",
+    height: "100%",
+    border: "2px dashed rgba(128, 128, 128, 0.4)",
+    borderRadius: "8px",
+    background: "rgba(128, 128, 128, 0.06)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "rgba(128, 128, 128, 0.6)",
+    fontSize: "0.85rem",
+    fontFamily: "system-ui, sans-serif"
 };
 function applyPreset(container, preset, overrides) {
     const base = STYLE_PRESETS[preset];
@@ -658,7 +672,8 @@ function provideWidget(options) {
         ready: false,
         destroyed: false,
         preset: stylePreset,
-        heightState: "normal"
+        heightState: "normal",
+        detached: false
     });
     const container = document.createElement("div");
     const iframe = document.createElement("iframe");
@@ -701,6 +716,7 @@ function provideWidget(options) {
                         ready: true
                     }));
                 send("heightState", state.get().heightState);
+                send("detached", state.get().detached);
                 break;
             case "maximize":
                 maximize();
@@ -728,6 +744,12 @@ function provideWidget(options) {
                     setPreset(data.payload);
                 }
                 break;
+            case "detach":
+                detach();
+                break;
+            case "dock":
+                dock();
+                break;
             case "nativeFullscreen":
                 requestNativeFullscreen();
                 break;
@@ -740,6 +762,10 @@ function provideWidget(options) {
     globalThis.addEventListener("message", handleMessage);
     const appendTarget = parentContainer || document.body;
     appendTarget.appendChild(container);
+    let placeholderEl = null;
+    let originalParent = null;
+    let presetBeforeDetach = null;
+    const resolvePlaceholderOpts = ()=>typeof options.placeholder === "object" ? options.placeholder : {};
     let draggableHandle = null;
     const resolveDragOpts = ()=>typeof options.draggable === "object" ? options.draggable : {};
     function teardownDraggable() {
@@ -815,6 +841,10 @@ function provideWidget(options) {
     function setPreset(preset) {
         if (state.get().destroyed) return;
         if (!(preset in STYLE_PRESETS)) return;
+        if (state.get().detached && preset === "inline") {
+            dock();
+            return;
+        }
         teardownDraggable();
         container.style.cssText = "";
         applyPreset(container, preset, styleOverrides);
@@ -843,6 +873,7 @@ function provideWidget(options) {
     }
     function maximizeHeight(offset) {
         if (state.get().destroyed) return;
+        if (state.get().preset === "inline") return;
         teardownDraggable();
         container.style.cssText = "";
         applyPreset(container, state.get().preset, styleOverrides);
@@ -869,6 +900,7 @@ function provideWidget(options) {
     }
     function minimizeHeight(height) {
         if (state.get().destroyed) return;
+        if (state.get().preset === "inline") return;
         teardownDraggable();
         container.style.cssText = "";
         applyPreset(container, state.get().preset, styleOverrides);
@@ -891,6 +923,7 @@ function provideWidget(options) {
     }
     function resetHeight() {
         if (state.get().destroyed) return;
+        if (state.get().preset === "inline") return;
         setPreset(state.get().preset);
     }
     function requestNativeFullscreen() {
@@ -903,6 +936,10 @@ function provideWidget(options) {
     }
     function destroy() {
         if (state.get().destroyed) return;
+        if (state.get().detached) {
+            placeholderEl?.remove();
+            placeholderEl = null;
+        }
         teardownDraggable();
         globalThis.removeEventListener("message", handleMessage);
         pubsub.unsubscribeAll();
@@ -914,8 +951,90 @@ function provideWidget(options) {
                 ready: false,
                 destroyed: true,
                 preset: s.preset,
-                heightState: s.heightState
+                heightState: s.heightState,
+                detached: false
             }));
+    }
+    function detach() {
+        const s = state.get();
+        if (s.destroyed || s.detached) return;
+        if (!parentContainer) {
+            clog.warn("detach() requires a parentContainer");
+            return;
+        }
+        if (s.preset !== "inline") {
+            clog.warn(`detach() only works with "inline" preset (current: "${s.preset}")`);
+            return;
+        }
+        originalParent = parentContainer;
+        presetBeforeDetach = s.preset;
+        const rect = container.getBoundingClientRect();
+        placeholderEl = document.createElement("div");
+        const placeholderOpts = resolvePlaceholderOpts();
+        Object.assign(placeholderEl.style, PLACEHOLDER_BASE);
+        placeholderEl.style.width = `${rect.width}px`;
+        placeholderEl.style.height = `${rect.height}px`;
+        if (placeholderOpts.style) {
+            Object.assign(placeholderEl.style, placeholderOpts.style);
+        }
+        if (placeholderOpts.content) {
+            placeholderEl.innerHTML = placeholderOpts.content;
+        }
+        originalParent.insertBefore(placeholderEl, container);
+        document.body.appendChild(container);
+        teardownDraggable();
+        container.style.cssText = "";
+        applyPreset(container, "float", styleOverrides);
+        if (anim) {
+            container.style.transition = anim.transition;
+        }
+        if (!s.visible) {
+            container.style.display = "none";
+            if (anim) {
+                Object.assign(container.style, anim.hidden);
+            }
+        }
+        state.update((st)=>({
+                ...st,
+                preset: "float",
+                detached: true,
+                heightState: "normal"
+            }));
+        setupDraggable();
+        send("detached", true);
+        send("heightState", "normal");
+    }
+    function dock() {
+        const s = state.get();
+        if (s.destroyed || !s.detached) return;
+        if (!originalParent || !placeholderEl) return;
+        teardownDraggable();
+        originalParent.insertBefore(container, placeholderEl);
+        placeholderEl.remove();
+        placeholderEl = null;
+        const restorePreset = presetBeforeDetach ?? "inline";
+        container.style.cssText = "";
+        applyPreset(container, restorePreset, styleOverrides);
+        if (anim) {
+            container.style.transition = anim.transition;
+        }
+        if (!s.visible) {
+            container.style.display = "none";
+            if (anim) {
+                Object.assign(container.style, anim.hidden);
+            }
+        }
+        state.update((st)=>({
+                ...st,
+                preset: restorePreset,
+                detached: false,
+                heightState: "normal"
+            }));
+        setupDraggable();
+        send("detached", false);
+        send("heightState", "normal");
+        originalParent = null;
+        presetBeforeDetach = null;
     }
     function send(type, payload) {
         if (state.get().destroyed) return;
@@ -941,6 +1060,8 @@ function provideWidget(options) {
         resetHeight,
         requestNativeFullscreen,
         exitNativeFullscreen,
+        detach,
+        dock,
         send,
         onMessage,
         subscribe: state.subscribe,
@@ -953,10 +1074,13 @@ function provideWidget(options) {
         },
         get trigger () {
             return triggerEl;
+        },
+        get placeholder () {
+            return placeholderEl;
         }
     };
 }
 export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { makeDraggable as makeDraggable };
 export { MSG_PREFIX as MSG_PREFIX };
-export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, STYLE_PRESETS as STYLE_PRESETS };
+export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, STYLE_PRESETS as STYLE_PRESETS };

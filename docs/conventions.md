@@ -17,6 +17,7 @@
 ## Patterns
 
 ### Message Protocol
+
 All messages use `WidgetMessage` envelope with `MSG_PREFIX`:
 
 ```typescript
@@ -29,6 +30,7 @@ onMessage("myEvent", (payload) => { ... });
 ```
 
 ### Style Presets
+
 Presets are plain `Partial<CSSStyleDeclaration>` objects applied via `Object.assign`:
 
 ```typescript
@@ -39,10 +41,11 @@ Presets are plain `Partial<CSSStyleDeclaration>` objects applied via `Object.ass
 ```
 
 ### State Management
+
 State is a `@marianmeres/store` instance with `WidgetState` shape. Subscribe with Svelte-compatible pattern:
 
 ```typescript
-widget.subscribe((state) => { /* reactive */ });
+widget.subscribe((state) => {/* reactive */});
 widget.get(); // snapshot
 ```
 
