@@ -5,6 +5,7 @@
 - Types and interfaces → `src/types.ts`
 - Style/CSS logic → `src/style-presets.ts`
 - Core implementation → `src/widget-provider.ts`
+- Drag-and-drop → `src/draggable.ts`
 - Public exports → `src/mod.ts` (barrel)
 
 ## Naming
@@ -48,6 +49,23 @@ State is a `@marianmeres/store` instance with `WidgetState` shape. Subscribe wit
 widget.subscribe((state) => {/* reactive */});
 widget.get(); // snapshot
 ```
+
+### Preset Guards
+
+Actions that don't apply to the current preset silently return (no-op). Guard pattern:
+
+```typescript
+function someAction(): void {
+    if (state.get().destroyed) return;
+    if (state.get().preset === "inline") return; // no-op for inline
+    // ... action logic
+}
+```
+
+Current guards:
+- **Height actions** (`maximizeHeight`, `minimizeHeight`, `resetHeight`) → no-op when `preset === "inline"`
+- **Detach** → no-op when `preset !== "inline"` or no `parentContainer`
+- **Draggable** → only set up when `preset === "float"`
 
 ## Anti-Patterns
 

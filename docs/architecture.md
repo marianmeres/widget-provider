@@ -10,11 +10,15 @@ Single-function library that creates an iframe-based widget embedded in a host p
 Host Page (provideWidget caller)
   │
   ├── Container <div>        ← styled by preset (float/fullscreen/inline)
+  │     ├── Drag Handle      ← optional, float preset only (via makeDraggable)
   │     └── <iframe>         ← loads widgetUrl, sandboxed
   │
   ├── Trigger <button>       ← optional, auto-toggles visibility
   │
-  └── State Store            ← @marianmeres/store (visible, ready, destroyed, preset)
+  ├── Placeholder <div>      ← replaces container when detached (inline only)
+  │
+  └── State Store            ← @marianmeres/store
+        │                       (visible, ready, destroyed, preset, heightState, detached)
         └── postMessage listener ← origin-validated, prefix-filtered
 ```
 
@@ -25,8 +29,19 @@ Host → iframe:  widget.send(type, payload) → postMessage with MSG_PREFIX
 iframe → Host:  postMessage with MSG_PREFIX → handleMessage → built-in handlers + onMessage callbacks
 
 Built-in control messages (from iframe):
-  ready, maximize, minimize, hide, close, setPreset, nativeFullscreen, exitNativeFullscreen
+  ready, maximize, minimize, maximizeHeight, minimizeHeight, resetHeight,
+  hide, close, setPreset, detach, dock, nativeFullscreen, exitNativeFullscreen
 ```
+
+## Preset-specific Behavior
+
+| Feature           | inline | float | fullscreen |
+| ----------------- | ------ | ----- | ---------- |
+| Height control    | no-op  | yes   | yes        |
+| Draggable         | no     | yes   | no         |
+| Detach/dock       | yes    | no    | no         |
+| Trigger button    | yes    | yes   | yes        |
+| Animations        | yes    | yes   | yes        |
 
 ## Key Files
 
@@ -35,13 +50,16 @@ Built-in control messages (from iframe):
 | `src/widget-provider.ts` | `provideWidget()` factory — creates DOM, wires messaging, returns API |
 | `src/types.ts`           | All types, interfaces, `MSG_PREFIX` constant                          |
 | `src/style-presets.ts`   | CSS preset objects, animation configs, apply functions                |
+| `src/draggable.ts`       | `makeDraggable()` — pointer-event based drag for float containers     |
 | `src/mod.ts`             | Public barrel export                                                  |
 
 ## External Dependencies
 
-| Dependency           | Purpose                                                    |
-| -------------------- | ---------------------------------------------------------- |
-| `@marianmeres/store` | Reactive state store (Svelte-compatible subscribe pattern) |
+| Dependency             | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `@marianmeres/store`  | Reactive state store (Svelte-compatible subscribe pattern) |
+| `@marianmeres/pubsub` | Internal message dispatch for onMessage handlers           |
+| `@marianmeres/clog`   | Debug logging                                              |
 
 ## Security Boundaries
 
