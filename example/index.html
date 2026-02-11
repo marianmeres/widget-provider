@@ -85,6 +85,7 @@
 				parentContainer: document.getElementById("inline-container"),
 				stylePreset: "inline",
 				allowedOrigin: "*",
+				styleOverrides: { border: "3px solid red" },
 			});
 
 			// Subscribe to state changes
@@ -139,6 +140,7 @@
 					stylePreset: "float",
 					allowedOrigin: "*",
 					animate: "fade-scale",
+					styleOverrides: { border: "3px solid red" },
 				});
 				wireMessages(floatWidget, "float");
 				addLog("Created float widget");
@@ -150,7 +152,10 @@
 					widgetUrl: "./widget.html",
 					stylePreset: "fullscreen",
 					allowedOrigin: "*",
-					styleOverrides: { cursor: "pointer" },
+					styleOverrides: {
+						cursor: "pointer",
+						border: "3px solid red",
+					},
 				});
 				wireMessages(fs, "fullscreen");
 				fs.container.addEventListener("click", (e) => {
@@ -170,6 +175,7 @@
 					allowedOrigin: "*",
 					trigger: true,
 					animate: "fade-scale",
+					styleOverrides: { border: "3px solid red" },
 				});
 				wireMessages(triggerWidget, "trigger");
 				addLog("Created widget with trigger (click the blue button)");

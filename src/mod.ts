@@ -7,6 +7,7 @@ export {
 
 export type {
 	AnimatePreset,
+	HeightState,
 	MessageHandler,
 	StyleOverrides,
 	StylePreset,

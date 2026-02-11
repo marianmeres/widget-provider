@@ -100,6 +100,7 @@ export function provideWidget(
 		ready: false,
 		destroyed: false,
 		preset: stylePreset,
+		heightState: "normal",
 	});
 
 	// DOM
@@ -151,12 +152,30 @@ export function provideWidget(
 		switch (bareType) {
 			case "ready":
 				state.update((s) => ({ ...s, ready: true }));
+				send("heightState", state.get().heightState);
 				break;
 			case "maximize":
 				maximize();
 				break;
 			case "minimize":
 				minimize();
+				break;
+			case "maximizeHeight":
+				maximizeHeight(
+					typeof data.payload === "number"
+						? data.payload
+						: undefined,
+				);
+				break;
+			case "minimizeHeight":
+				minimizeHeight(
+					typeof data.payload === "number"
+						? data.payload
+						: undefined,
+				);
+				break;
+			case "resetHeight":
+				resetHeight();
 				break;
 			case "hide":
 				hide();
@@ -263,7 +282,8 @@ export function provideWidget(
 				Object.assign(container.style, anim.hidden);
 			}
 		}
-		state.update((s) => ({ ...s, preset }));
+		state.update((s) => ({ ...s, preset, heightState: "normal" }));
+		send("heightState", "normal");
 	}
 
 	function maximize(): void {
@@ -272,6 +292,51 @@ export function provideWidget(
 
 	function minimize(): void {
 		setPreset(initialPreset);
+	}
+
+	function maximizeHeight(offset?: number): void {
+		if (state.get().destroyed) return;
+		let o: number;
+		if (offset !== undefined) {
+			o = offset;
+		} else {
+			const rect = container.getBoundingClientRect();
+			const vh = globalThis.innerHeight;
+			o = (rect.width === 0 && rect.height === 0)
+				? 20
+				: Math.max(0, Math.min(rect.top, vh - rect.bottom));
+		}
+		container.style.position = "fixed";
+		container.style.top = `${o}px`;
+		container.style.bottom = "";
+		container.style.height = `calc(100vh - ${o * 2}px)`;
+		state.update((s) => ({ ...s, heightState: "maximized" }));
+		send("heightState", "maximized");
+	}
+
+	function minimizeHeight(height?: number): void {
+		if (state.get().destroyed) return;
+		// Restore original preset positioning (e.g. bottom-anchored for float)
+		// before overriding height
+		container.style.cssText = "";
+		applyPreset(container, state.get().preset, styleOverrides);
+		if (anim) {
+			container.style.transition = anim.transition;
+		}
+		if (!state.get().visible) {
+			container.style.display = "none";
+			if (anim) {
+				Object.assign(container.style, anim.hidden);
+			}
+		}
+		container.style.height = `${height ?? 48}px`;
+		state.update((s) => ({ ...s, heightState: "minimized" }));
+		send("heightState", "minimized");
+	}
+
+	function resetHeight(): void {
+		if (state.get().destroyed) return;
+		setPreset(state.get().preset);
 	}
 
 	function requestNativeFullscreen(): Promise<void> {
@@ -296,6 +361,7 @@ export function provideWidget(
 			ready: false,
 			destroyed: true,
 			preset: s.preset,
+			heightState: s.heightState,
 		}));
 	}
 
@@ -326,6 +392,9 @@ export function provideWidget(
 		setPreset,
 		maximize,
 		minimize,
+		maximizeHeight,
+		minimizeHeight,
+		resetHeight,
 		requestNativeFullscreen,
 		exitNativeFullscreen,
 		send,

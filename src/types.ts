@@ -10,6 +10,9 @@ export interface WidgetMessage<T = unknown> {
 /** Built-in positioning modes for the widget container */
 export type StylePreset = "float" | "fullscreen" | "inline";
 
+/** Height states for the widget container */
+export type HeightState = "normal" | "minimized" | "maximized";
+
 /** Named animation presets for show/hide transitions */
 export type AnimatePreset = "fade-scale" | "slide-up";
 
@@ -93,6 +96,7 @@ export interface WidgetState {
 	ready: boolean;
 	destroyed: boolean;
 	preset: StylePreset;
+	heightState: HeightState;
 }
 
 /** Control API returned by {@linkcode provideWidget} */
@@ -111,6 +115,12 @@ export interface WidgetProviderApi {
 	maximize(): void;
 	/** Shortcut: switch back to the initial preset */
 	minimize(): void;
+	/** Maximize only the widget height, keeping width and horizontal position */
+	maximizeHeight(offset?: number): void;
+	/** Collapse the widget to a minimal height (default 48px) */
+	minimizeHeight(height?: number): void;
+	/** Reset the widget height back to the current preset's default */
+	resetHeight(): void;
 	/** Request native browser fullscreen for the iframe */
 	requestNativeFullscreen(): Promise<void>;
 	/** Exit native browser fullscreen */
