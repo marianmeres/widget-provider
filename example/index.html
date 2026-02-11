@@ -138,8 +138,11 @@
 				floatWidget = provideWidget({
 					widgetUrl: "./widget.html",
 					stylePreset: "float",
+					visible: false,
 					allowedOrigin: "*",
 					animate: "fade-scale",
+					draggable: true,
+					trigger: true,
 					styleOverrides: { border: "3px solid red" },
 				});
 				wireMessages(floatWidget, "float");

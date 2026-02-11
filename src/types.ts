@@ -25,6 +25,26 @@ export type MessageHandler<T = unknown> = (payload: T) => void;
 /** Function that removes a previously registered listener or subscription */
 export type Unsubscribe = () => void;
 
+/** Configuration for drag-and-drop behavior in float mode */
+export interface DraggableOptions {
+	/** Height of the drag handle bar in pixels. Default: 24 */
+	handleHeight?: number;
+	/** CSS overrides for the drag handle element */
+	handleStyle?: Partial<CSSStyleDeclaration>;
+	/** Minimum gap (px) between the widget edge and the viewport edge. Default: 20 */
+	boundaryPadding?: number;
+}
+
+/** Control handle returned by makeDraggable, used for cleanup */
+export interface DraggableHandle {
+	/** The drag handle DOM element */
+	readonly handleEl: HTMLElement;
+	/** Remove all event listeners and the handle element */
+	destroy(): void;
+	/** Reset position to the preset default (clears top/left, restores bottom/right) */
+	resetPosition(): void;
+}
+
 /** Configuration options for {@linkcode provideWidget} */
 export interface WidgetProviderOptions {
 	/** The URL of the SPA to embed */
@@ -88,6 +108,14 @@ export interface WidgetProviderOptions {
 			/** CSS overrides for the trigger button */
 			style?: Partial<CSSStyleDeclaration>;
 		};
+
+	/**
+	 * Enable drag-and-drop for the float preset.
+	 * Only effective when stylePreset is "float".
+	 * - `true` → enable with defaults
+	 * - object → enable with custom options
+	 */
+	draggable?: boolean | DraggableOptions;
 }
 
 /** Reactive state tracked in the store */

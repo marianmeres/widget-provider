@@ -1,4 +1,5 @@
 import { createStore } from "@marianmeres/store";
+import { makeDraggable } from "./draggable.ts";
 import {
 	ANIMATE_PRESETS,
 	type AnimateConfig,
@@ -8,6 +9,8 @@ import {
 	TRIGGER_BASE,
 } from "./style-presets.ts";
 import {
+	type DraggableHandle,
+	type DraggableOptions,
 	type MessageHandler,
 	MSG_PREFIX,
 	type StylePreset,
@@ -162,16 +165,12 @@ export function provideWidget(
 				break;
 			case "maximizeHeight":
 				maximizeHeight(
-					typeof data.payload === "number"
-						? data.payload
-						: undefined,
+					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
 			case "minimizeHeight":
 				minimizeHeight(
-					typeof data.payload === "number"
-						? data.payload
-						: undefined,
+					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
 			case "resetHeight":
@@ -207,6 +206,26 @@ export function provideWidget(
 	// append to DOM
 	const appendTarget = parentContainer || document.body;
 	appendTarget.appendChild(container);
+
+	// draggable (float only)
+	let draggableHandle: DraggableHandle | null = null;
+	const resolveDragOpts = (): DraggableOptions =>
+		typeof options.draggable === "object" ? options.draggable : {};
+
+	function teardownDraggable(): void {
+		if (draggableHandle) {
+			draggableHandle.destroy();
+			draggableHandle = null;
+		}
+	}
+
+	function setupDraggable(): void {
+		if (state.get().preset === "float" && options.draggable) {
+			draggableHandle = makeDraggable(container, iframe, resolveDragOpts());
+		}
+	}
+
+	setupDraggable();
 
 	// trigger button
 	const triggerOpts = options.trigger;
@@ -271,6 +290,7 @@ export function provideWidget(
 	function setPreset(preset: StylePreset): void {
 		if (state.get().destroyed) return;
 		if (!(preset in STYLE_PRESETS)) return;
+		teardownDraggable();
 		container.style.cssText = "";
 		applyPreset(container, preset, styleOverrides);
 		if (anim) {
@@ -283,6 +303,7 @@ export function provideWidget(
 			}
 		}
 		state.update((s) => ({ ...s, preset, heightState: "normal" }));
+		setupDraggable();
 		send("heightState", "normal");
 	}
 
@@ -296,6 +317,14 @@ export function provideWidget(
 
 	function maximizeHeight(offset?: number): void {
 		if (state.get().destroyed) return;
+		teardownDraggable();
+		// Full reset to preset position first (clears any drag positioning)
+		container.style.cssText = "";
+		applyPreset(container, state.get().preset, styleOverrides);
+		if (anim) {
+			container.style.transition = anim.transition;
+		}
+		// Now calculate offset from the known preset position
 		let o: number;
 		if (offset !== undefined) {
 			o = offset;
@@ -306,16 +335,18 @@ export function provideWidget(
 				? 20
 				: Math.max(0, Math.min(rect.top, vh - rect.bottom));
 		}
-		container.style.position = "fixed";
+		// Override for maximized height
 		container.style.top = `${o}px`;
 		container.style.bottom = "";
 		container.style.height = `calc(100vh - ${o * 2}px)`;
 		state.update((s) => ({ ...s, heightState: "maximized" }));
+		setupDraggable();
 		send("heightState", "maximized");
 	}
 
 	function minimizeHeight(height?: number): void {
 		if (state.get().destroyed) return;
+		teardownDraggable();
 		// Restore original preset positioning (e.g. bottom-anchored for float)
 		// before overriding height
 		container.style.cssText = "";
@@ -331,6 +362,7 @@ export function provideWidget(
 		}
 		container.style.height = `${height ?? 48}px`;
 		state.update((s) => ({ ...s, heightState: "minimized" }));
+		setupDraggable();
 		send("heightState", "minimized");
 	}
 
@@ -351,6 +383,7 @@ export function provideWidget(
 
 	function destroy(): void {
 		if (state.get().destroyed) return;
+		teardownDraggable();
 		globalThis.removeEventListener("message", handleMessage);
 		pubsub.unsubscribeAll();
 		iframe.src = "about:blank";

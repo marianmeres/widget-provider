@@ -5,8 +5,12 @@ export {
 	resolveAnimateConfig,
 } from "./widget-provider.ts";
 
+export { makeDraggable } from "./draggable.ts";
+
 export type {
 	AnimatePreset,
+	DraggableHandle,
+	DraggableOptions,
 	HeightState,
 	MessageHandler,
 	StyleOverrides,

@@ -134,6 +134,111 @@ const createStore = (initial, options = null)=>{
     };
 };
 new Map();
+function makeDraggable(container, iframe, options = {}) {
+    const handleHeight = options.handleHeight ?? 24;
+    const boundaryPadding = options.boundaryPadding ?? 20;
+    const handle = document.createElement("div");
+    Object.assign(handle.style, {
+        width: "100%",
+        height: `${handleHeight}px`,
+        cursor: "grab",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        userSelect: "none",
+        touchAction: "none",
+        flexShrink: "0"
+    });
+    if (options.handleStyle) {
+        Object.assign(handle.style, options.handleStyle);
+    }
+    const grip = document.createElement("span");
+    Object.assign(grip.style, {
+        width: "32px",
+        height: "4px",
+        borderRadius: "2px",
+        background: "rgba(128,128,128,0.35)",
+        pointerEvents: "none"
+    });
+    handle.appendChild(grip);
+    container.insertBefore(handle, iframe);
+    iframe.style.height = `calc(100% - ${handleHeight}px)`;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let savedTransition = "";
+    function onPointerDown(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        isDragging = true;
+        handle.style.cursor = "grabbing";
+        savedTransition = container.style.transition;
+        container.style.transition = "none";
+        const rect = container.getBoundingClientRect();
+        container.style.top = `${rect.top}px`;
+        container.style.left = `${rect.left}px`;
+        container.style.bottom = "auto";
+        container.style.right = "auto";
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        iframe.style.pointerEvents = "none";
+        handle.addEventListener("pointermove", onPointerMove);
+        handle.addEventListener("pointerup", onPointerUp);
+        handle.addEventListener("pointercancel", onPointerUp);
+    }
+    function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const vw = globalThis.innerWidth;
+        const vh = globalThis.innerHeight;
+        const cw = container.offsetWidth;
+        const ch = container.offsetHeight;
+        const newLeft = Math.max(boundaryPadding, Math.min(startLeft + dx, vw - cw - boundaryPadding));
+        const newTop = Math.max(boundaryPadding, Math.min(startTop + dy, vh - ch - boundaryPadding));
+        container.style.left = `${newLeft}px`;
+        container.style.top = `${newTop}px`;
+    }
+    function onPointerUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        handle.style.cursor = "grab";
+        iframe.style.pointerEvents = "";
+        container.style.transition = savedTransition;
+        handle.releasePointerCapture(e.pointerId);
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", onPointerUp);
+        handle.removeEventListener("pointercancel", onPointerUp);
+    }
+    handle.addEventListener("pointerdown", onPointerDown);
+    function resetPosition() {
+        container.style.top = "";
+        container.style.left = "";
+        container.style.bottom = "";
+        container.style.right = "";
+    }
+    function destroy() {
+        handle.removeEventListener("pointerdown", onPointerDown);
+        if (isDragging) {
+            iframe.style.pointerEvents = "";
+            container.style.transition = savedTransition;
+        }
+        handle.remove();
+        iframe.style.height = "100%";
+    }
+    return {
+        get handleEl () {
+            return handle;
+        },
+        destroy,
+        resetPosition
+    };
+}
 const ANIMATE_PRESETS = {
     "fade-scale": {
         transition: "opacity 200ms ease, transform 200ms ease",
@@ -635,6 +740,20 @@ function provideWidget(options) {
     globalThis.addEventListener("message", handleMessage);
     const appendTarget = parentContainer || document.body;
     appendTarget.appendChild(container);
+    let draggableHandle = null;
+    const resolveDragOpts = ()=>typeof options.draggable === "object" ? options.draggable : {};
+    function teardownDraggable() {
+        if (draggableHandle) {
+            draggableHandle.destroy();
+            draggableHandle = null;
+        }
+    }
+    function setupDraggable() {
+        if (state.get().preset === "float" && options.draggable) {
+            draggableHandle = makeDraggable(container, iframe, resolveDragOpts());
+        }
+    }
+    setupDraggable();
     const triggerOpts = options.trigger;
     let triggerEl = null;
     if (triggerOpts) {
@@ -696,6 +815,7 @@ function provideWidget(options) {
     function setPreset(preset) {
         if (state.get().destroyed) return;
         if (!(preset in STYLE_PRESETS)) return;
+        teardownDraggable();
         container.style.cssText = "";
         applyPreset(container, preset, styleOverrides);
         if (anim) {
@@ -712,6 +832,7 @@ function provideWidget(options) {
                 preset,
                 heightState: "normal"
             }));
+        setupDraggable();
         send("heightState", "normal");
     }
     function maximize() {
@@ -722,6 +843,12 @@ function provideWidget(options) {
     }
     function maximizeHeight(offset) {
         if (state.get().destroyed) return;
+        teardownDraggable();
+        container.style.cssText = "";
+        applyPreset(container, state.get().preset, styleOverrides);
+        if (anim) {
+            container.style.transition = anim.transition;
+        }
         let o;
         if (offset !== undefined) {
             o = offset;
@@ -730,7 +857,6 @@ function provideWidget(options) {
             const vh = globalThis.innerHeight;
             o = rect.width === 0 && rect.height === 0 ? 20 : Math.max(0, Math.min(rect.top, vh - rect.bottom));
         }
-        container.style.position = "fixed";
         container.style.top = `${o}px`;
         container.style.bottom = "";
         container.style.height = `calc(100vh - ${o * 2}px)`;
@@ -738,10 +864,12 @@ function provideWidget(options) {
                 ...s,
                 heightState: "maximized"
             }));
+        setupDraggable();
         send("heightState", "maximized");
     }
     function minimizeHeight(height) {
         if (state.get().destroyed) return;
+        teardownDraggable();
         container.style.cssText = "";
         applyPreset(container, state.get().preset, styleOverrides);
         if (anim) {
@@ -758,6 +886,7 @@ function provideWidget(options) {
                 ...s,
                 heightState: "minimized"
             }));
+        setupDraggable();
         send("heightState", "minimized");
     }
     function resetHeight() {
@@ -774,6 +903,7 @@ function provideWidget(options) {
     }
     function destroy() {
         if (state.get().destroyed) return;
+        teardownDraggable();
         globalThis.removeEventListener("message", handleMessage);
         pubsub.unsubscribeAll();
         iframe.src = "about:blank";
@@ -827,5 +957,6 @@ function provideWidget(options) {
     };
 }
 export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
+export { makeDraggable as makeDraggable };
 export { MSG_PREFIX as MSG_PREFIX };
 export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, STYLE_PRESETS as STYLE_PRESETS };
