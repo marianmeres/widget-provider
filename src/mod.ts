@@ -5,7 +5,7 @@ export {
 	resolveAnimateConfig,
 } from "./widget-provider.ts";
 
-export { makeDraggable } from "./draggable.ts";
+export { makeDraggable, resolveEdge } from "./draggable.ts";
 export { makeResizable } from "./resizable.ts";
 
 export type {
@@ -13,11 +13,13 @@ export type {
 	DimensionState,
 	DraggableHandle,
 	DraggableOptions,
+	EdgeSnapOptions,
 	HeightState,
 	MessageHandler,
 	PlaceholderOptions,
 	ResizableHandle,
 	ResizableOptions,
+	SnapEdge,
 	StyleOverrides,
 	StylePreset,
 	Unsubscribe,

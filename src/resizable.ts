@@ -146,6 +146,8 @@ export function makeResizable(
 		handle.removeEventListener("pointermove", onPointerMove);
 		handle.removeEventListener("pointerup", onPointerUp);
 		handle.removeEventListener("pointercancel", onPointerUp);
+
+		options.onResizeEnd?.();
 	}
 
 	handle.addEventListener("pointerdown", onPointerDown);

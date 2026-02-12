@@ -3,6 +3,7 @@ import {
 	isOriginAllowed,
 	MSG_PREFIX,
 	resolveAllowedOrigins,
+	resolveEdge,
 	STYLE_PRESETS,
 } from "../src/mod.ts";
 
@@ -92,4 +93,37 @@ Deno.test("fullscreen preset covers viewport", () => {
 
 Deno.test("inline preset uses relative positioning", () => {
 	assertEquals(STYLE_PRESETS.inline.position, "relative");
+});
+
+// --- resolveEdge ---
+
+Deno.test("resolveEdge: left edge", () => {
+	assertEquals(resolveEdge(true, false, false, false), "left");
+});
+
+Deno.test("resolveEdge: right edge", () => {
+	assertEquals(resolveEdge(false, true, false, false), "right");
+});
+
+Deno.test("resolveEdge: top edge", () => {
+	assertEquals(resolveEdge(false, false, true, false), "top");
+});
+
+Deno.test("resolveEdge: bottom edge", () => {
+	assertEquals(resolveEdge(false, false, false, true), "bottom");
+});
+
+Deno.test("resolveEdge: no edge returns null", () => {
+	assertEquals(resolveEdge(false, false, false, false), null);
+});
+
+Deno.test("resolveEdge: corner (two edges) returns null", () => {
+	assertEquals(resolveEdge(true, false, true, false), null);
+	assertEquals(resolveEdge(true, false, false, true), null);
+	assertEquals(resolveEdge(false, true, true, false), null);
+	assertEquals(resolveEdge(false, true, false, true), null);
+});
+
+Deno.test("resolveEdge: all edges returns null", () => {
+	assertEquals(resolveEdge(true, true, true, true), null);
 });

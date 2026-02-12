@@ -18,6 +18,7 @@ import {
 	type PlaceholderOptions,
 	type ResizableHandle,
 	type ResizableOptions,
+	type SnapEdge,
 	type StylePreset,
 	type Unsubscribe,
 	type WidgetMessage,
@@ -262,8 +263,33 @@ export function provideWidget(
 
 	// draggable (float only)
 	let draggableHandle: DraggableHandle | null = null;
-	const resolveDragOpts = (): DraggableOptions =>
-		typeof options.draggable === "object" ? options.draggable : {};
+	const resolveDragOpts = (): DraggableOptions => {
+		const base: DraggableOptions = typeof options.draggable === "object"
+			? options.draggable
+			: {};
+		return {
+			...base,
+			edgeSnap: base.edgeSnap ?? true,
+			onEdgeSnap: (edge: SnapEdge) => {
+				// Capture geometry before maximize (resetToPreset reverts to
+				// preset defaults, losing dragged position and resized dimensions)
+				const rect = container.getBoundingClientRect();
+				if (edge === "left" || edge === "right") {
+					maximizeHeight();
+					// Preserve horizontal position and width at the snapped edge
+					container.style.left = `${rect.left}px`;
+					container.style.right = "auto";
+					container.style.width = `${rect.width}px`;
+				} else {
+					maximizeWidth();
+					// Preserve vertical position and height at the snapped edge
+					container.style.top = `${rect.top}px`;
+					container.style.bottom = "auto";
+					container.style.height = `${rect.height}px`;
+				}
+			},
+		};
+	};
 
 	function teardownDraggable(): void {
 		if (draggableHandle) {
@@ -280,8 +306,27 @@ export function provideWidget(
 
 	// resizable (float only)
 	let resizableHandle: ResizableHandle | null = null;
-	const resolveResizeOpts = (): ResizableOptions =>
-		typeof options.resizable === "object" ? options.resizable : {};
+	const resolveResizeOpts = (): ResizableOptions => {
+		const base: ResizableOptions = typeof options.resizable === "object"
+			? options.resizable
+			: {};
+		return {
+			...base,
+			onResizeEnd: () => {
+				const s = state.get();
+				if (s.heightState !== "normal" || s.widthState !== "normal") {
+					clearAxisOverrides();
+					state.update((st) => ({
+						...st,
+						heightState: "normal",
+						widthState: "normal",
+					}));
+					send("heightState", "normal");
+					send("widthState", "normal");
+				}
+			},
+		};
+	};
 
 	function teardownResizable(): void {
 		if (resizableHandle) {

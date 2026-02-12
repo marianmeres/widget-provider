@@ -1,8 +1,32 @@
-import type { DraggableHandle, DraggableOptions } from "./types.ts";
+import type {
+	DraggableHandle,
+	DraggableOptions,
+	EdgeSnapOptions,
+	SnapEdge,
+} from "./types.ts";
 import { iconGrip } from "./iconGrip.ts";
 
 const DEFAULT_HANDLE_HEIGHT = 24;
 const DEFAULT_BOUNDARY_PADDING = 20;
+const DEFAULT_DWELL_MS = 500;
+
+/**
+ * Pure edge-resolution logic: given which viewport edges are touched,
+ * return the single active edge or `null` if ambiguous (corner) or none.
+ */
+export function resolveEdge(
+	atLeft: boolean,
+	atRight: boolean,
+	atTop: boolean,
+	atBottom: boolean,
+): SnapEdge | null {
+	const count = [atLeft, atRight, atTop, atBottom].filter(Boolean).length;
+	if (count !== 1) return null;
+	if (atLeft) return "left";
+	if (atRight) return "right";
+	if (atTop) return "top";
+	return atBottom ? "bottom" : null;
+}
 
 /**
  * Make a fixed-position container draggable via a handle bar inserted at the top.
@@ -18,6 +42,15 @@ export function makeDraggable(
 ): DraggableHandle {
 	const handleHeight = options.handleHeight ?? DEFAULT_HANDLE_HEIGHT;
 	const boundaryPadding = options.boundaryPadding ?? DEFAULT_BOUNDARY_PADDING;
+
+	// --- edge snap options ---
+	const edgeSnapEnabled = options.edgeSnap !== false &&
+		(!!options.edgeSnap || !!options.onEdgeSnap);
+	const edgeSnapOpts: EdgeSnapOptions = typeof options.edgeSnap === "object"
+		? options.edgeSnap
+		: {};
+	const dwellMs = edgeSnapOpts.dwellMs ?? DEFAULT_DWELL_MS;
+	const onEdgeSnap = options.onEdgeSnap;
 
 	// --- handle element (floating grip in top-left corner) ---
 	const handle = document.createElement("div");
@@ -66,10 +99,96 @@ export function makeDraggable(
 	let startTop = 0;
 	let savedTransition = "";
 
+	// --- edge snap state ---
+	let dwellTimer: ReturnType<typeof setTimeout> | null = null;
+	let activeEdge: SnapEdge | null = null;
+	let ghostEl: HTMLElement | null = null;
+	let snapPending = false;
+
+	function detectEdge(newLeft: number, newTop: number): SnapEdge | null {
+		if (!edgeSnapEnabled) return null;
+		const vw = globalThis.innerWidth;
+		const vh = globalThis.innerHeight;
+		const cw = container.offsetWidth;
+		const ch = container.offsetHeight;
+		return resolveEdge(
+			newLeft <= boundaryPadding,
+			newLeft >= vw - cw - boundaryPadding,
+			newTop <= boundaryPadding,
+			newTop >= vh - ch - boundaryPadding,
+		);
+	}
+
+	function createGhost(edge: SnapEdge): HTMLElement {
+		const ghost = document.createElement("div");
+		const rect = container.getBoundingClientRect();
+		const vw = globalThis.innerWidth;
+		const vh = globalThis.innerHeight;
+
+		Object.assign(
+			ghost.style,
+			{
+				position: "fixed",
+				boxSizing: "border-box",
+				border: "2px dashed rgba(100, 149, 237, 0.7)",
+				borderRadius: "8px",
+				background: "rgba(100, 149, 237, 0.08)",
+				zIndex: "9999",
+				pointerEvents: "none",
+				transition: "opacity 150ms ease",
+				opacity: "0",
+			} satisfies Partial<CSSStyleDeclaration>,
+		);
+
+		if (edge === "left" || edge === "right") {
+			// Maximize height preview: full viewport height, same width/left
+			ghost.style.top = `${boundaryPadding}px`;
+			ghost.style.left = `${rect.left}px`;
+			ghost.style.width = `${rect.width}px`;
+			ghost.style.height = `${vh - boundaryPadding * 2}px`;
+		} else {
+			// Maximize width preview: full viewport width, same height/top
+			ghost.style.top = `${rect.top}px`;
+			ghost.style.left = `${boundaryPadding}px`;
+			ghost.style.width = `${vw - boundaryPadding * 2}px`;
+			ghost.style.height = `${rect.height}px`;
+		}
+
+		if (edgeSnapOpts.ghostStyle) {
+			Object.assign(ghost.style, edgeSnapOpts.ghostStyle);
+		}
+
+		document.body.appendChild(ghost);
+		requestAnimationFrame(() => {
+			ghost.style.opacity = "1";
+		});
+
+		return ghost;
+	}
+
+	function removeGhost(): void {
+		if (ghostEl) {
+			ghostEl.remove();
+			ghostEl = null;
+		}
+	}
+
+	function cancelEdgeSnap(): void {
+		if (dwellTimer !== null) {
+			clearTimeout(dwellTimer);
+			dwellTimer = null;
+		}
+		activeEdge = null;
+		snapPending = false;
+		removeGhost();
+	}
+
 	function onPointerDown(e: PointerEvent): void {
 		if (e.button !== 0) return; // left button only
 		e.preventDefault();
 		handle.setPointerCapture(e.pointerId);
+
+		cancelEdgeSnap();
 
 		isDragging = true;
 		handle.style.cursor = "grabbing";
@@ -120,6 +239,24 @@ export function makeDraggable(
 
 		container.style.left = `${newLeft}px`;
 		container.style.top = `${newTop}px`;
+
+		// --- edge snap detection ---
+		if (!edgeSnapEnabled) return;
+
+		const edge = detectEdge(newLeft, newTop);
+
+		if (edge === activeEdge) return; // same edge (or still no edge), timer running
+
+		cancelEdgeSnap();
+
+		if (edge) {
+			activeEdge = edge;
+			dwellTimer = setTimeout(() => {
+				dwellTimer = null;
+				ghostEl = createGhost(edge);
+				snapPending = true;
+			}, dwellMs);
+		}
 	}
 
 	function onPointerUp(e: PointerEvent): void {
@@ -133,6 +270,18 @@ export function makeDraggable(
 		handle.removeEventListener("pointermove", onPointerMove);
 		handle.removeEventListener("pointerup", onPointerUp);
 		handle.removeEventListener("pointercancel", onPointerUp);
+
+		// --- edge snap on release ---
+		const isCancel = e.type === "pointercancel";
+		if (!isCancel && snapPending && activeEdge && onEdgeSnap) {
+			const edge = activeEdge;
+			cancelEdgeSnap();
+			// Defer: callback triggers maximizeAxis -> teardownInteractions ->
+			// destroy() on this draggable. Must complete after this handler.
+			queueMicrotask(() => onEdgeSnap(edge));
+		} else {
+			cancelEdgeSnap();
+		}
 	}
 
 	handle.addEventListener("pointerdown", onPointerDown);
@@ -146,6 +295,7 @@ export function makeDraggable(
 	}
 
 	function destroy(): void {
+		cancelEdgeSnap();
 		handle.removeEventListener("pointerdown", onPointerDown);
 		if (isDragging) {
 			iframe.style.pointerEvents = "";

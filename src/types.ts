@@ -31,6 +31,17 @@ export type MessageHandler<T = unknown> = (payload: T) => void;
 /** Function that removes a previously registered listener or subscription */
 export type Unsubscribe = () => void;
 
+/** Which viewport edge the widget was snapped to */
+export type SnapEdge = "left" | "right" | "top" | "bottom";
+
+/** Configuration for edge-snap behavior (drag-to-edge maximize) */
+export interface EdgeSnapOptions {
+	/** Dwell time (ms) at edge before ghost appears. Default: 500 */
+	dwellMs?: number;
+	/** CSS overrides for the ghost preview element */
+	ghostStyle?: Partial<CSSStyleDeclaration>;
+}
+
 /** Configuration for drag-and-drop behavior in float mode */
 export interface DraggableOptions {
 	/** Height of the drag handle bar in pixels. Default: 24 */
@@ -39,6 +50,19 @@ export interface DraggableOptions {
 	handleStyle?: Partial<CSSStyleDeclaration>;
 	/** Minimum gap (px) between the widget edge and the viewport edge. Default: 20 */
 	boundaryPadding?: number;
+	/**
+	 * Enable edge-snap behavior (ghost preview + maximize perpendicular axis on release).
+	 * - `true` → enable with defaults
+	 * - object → enable with custom options
+	 * - `false` → explicitly disable
+	 */
+	edgeSnap?: boolean | EdgeSnapOptions;
+	/**
+	 * Called when the pointer is released while the edge-snap ghost is showing.
+	 * Receives the detected edge. The consumer translates this to the appropriate
+	 * axis maximize action.
+	 */
+	onEdgeSnap?: (edge: SnapEdge) => void;
 }
 
 /** Control handle returned by makeDraggable, used for cleanup */
@@ -67,6 +91,8 @@ export interface ResizableOptions {
 	maxWidth?: number;
 	/** Maximum height in pixels. Default: viewport height minus padding */
 	maxHeight?: number;
+	/** Called when a manual resize interaction ends (pointer released after resizing) */
+	onResizeEnd?: () => void;
 }
 
 /** Control handle returned by makeResizable, used for cleanup */
