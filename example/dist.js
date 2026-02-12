@@ -701,6 +701,7 @@ function provideWidget(options) {
         destroyed: false,
         preset: stylePreset,
         heightState: "normal",
+        widthState: "normal",
         detached: false,
         isSmallScreen: checkSmallScreen()
     });
@@ -745,6 +746,7 @@ function provideWidget(options) {
                         ready: true
                     }));
                 send("heightState", state.get().heightState);
+                send("widthState", state.get().widthState);
                 send("detached", state.get().detached);
                 send("isSmallScreen", state.get().isSmallScreen);
                 break;
@@ -763,8 +765,14 @@ function provideWidget(options) {
             case "minimizeHeight":
                 minimizeHeight(typeof data.payload === "number" ? data.payload : undefined);
                 break;
-            case "resetHeight":
-                resetHeight();
+            case "maximizeWidth":
+                maximizeWidth(typeof data.payload === "number" ? data.payload : undefined);
+                break;
+            case "minimizeWidth":
+                minimizeWidth(typeof data.payload === "number" ? data.payload : undefined);
+                break;
+            case "reset":
+                reset();
                 break;
             case "hide":
                 hide();
@@ -824,6 +832,111 @@ function provideWidget(options) {
         }
     }
     setupDraggable();
+    let heightOverrides = null;
+    let widthOverrides = null;
+    const AXIS_CONFIG = {
+        height: {
+            startProp: "top",
+            endProp: "bottom",
+            sizeProp: "height",
+            viewportUnit: "vh",
+            viewportSize: ()=>globalThis.innerHeight,
+            stateKey: "heightState",
+            getOverrides: ()=>heightOverrides,
+            setOverrides: (v)=>{
+                heightOverrides = v;
+            }
+        },
+        width: {
+            startProp: "left",
+            endProp: "right",
+            sizeProp: "width",
+            viewportUnit: "vw",
+            viewportSize: ()=>globalThis.innerWidth,
+            stateKey: "widthState",
+            getOverrides: ()=>widthOverrides,
+            setOverrides: (v)=>{
+                widthOverrides = v;
+            }
+        }
+    };
+    function resetToPreset(presetOverride, skipAxisReapply) {
+        const preset = presetOverride ?? state.get().preset;
+        container.style.cssText = "";
+        applyPreset(container, preset, styleOverrides);
+        if (anim) {
+            container.style.transition = anim.transition;
+        }
+        if (!state.get().visible) {
+            container.style.display = "none";
+            if (anim) {
+                Object.assign(container.style, anim.hidden);
+            }
+        }
+        for (const [axis, cfg] of Object.entries(AXIS_CONFIG)){
+            if (axis === skipAxisReapply) continue;
+            const overrides = cfg.getOverrides();
+            if (overrides) {
+                Object.assign(container.style, overrides);
+            }
+        }
+    }
+    function clearAxisOverrides() {
+        heightOverrides = null;
+        widthOverrides = null;
+    }
+    function maximizeAxis(axis, offset) {
+        if (state.get().destroyed) return;
+        if (state.get().preset === "inline") return;
+        const cfg = AXIS_CONFIG[axis];
+        teardownDraggable();
+        resetToPreset(undefined, axis);
+        let o;
+        if (offset !== undefined) {
+            o = offset;
+        } else {
+            const rect = container.getBoundingClientRect();
+            const vs = cfg.viewportSize();
+            if (rect.width === 0 && rect.height === 0) {
+                o = 20;
+            } else {
+                const startDist = axis === "height" ? rect.top : rect.left;
+                const endDist = vs - (axis === "height" ? rect.bottom : rect.right);
+                o = Math.max(0, Math.min(startDist, endDist));
+            }
+        }
+        const overrides = {
+            [cfg.startProp]: `${o}px`,
+            [cfg.endProp]: "",
+            [cfg.sizeProp]: `calc(100${cfg.viewportUnit} - ${o * 2}px)`
+        };
+        cfg.setOverrides(overrides);
+        Object.assign(container.style, overrides);
+        state.update((s)=>({
+                ...s,
+                [cfg.stateKey]: "maximized"
+            }));
+        setupDraggable();
+        send(cfg.stateKey, "maximized");
+    }
+    function minimizeAxis(axis, size) {
+        if (state.get().destroyed) return;
+        if (state.get().preset === "inline") return;
+        const cfg = AXIS_CONFIG[axis];
+        teardownDraggable();
+        resetToPreset(undefined, axis);
+        const overrides = {
+            [cfg.sizeProp]: `${size ?? 48}px`
+        };
+        cfg.setOverrides(overrides);
+        Object.assign(container.style, overrides);
+        state.update((s)=>({
+                ...s,
+                [cfg.stateKey]: "minimized"
+            }));
+        setupDraggable();
+        send(cfg.stateKey, "minimized");
+    }
     const triggerOpts = options.trigger;
     let triggerEl = null;
     if (triggerOpts) {
@@ -898,24 +1011,17 @@ function provideWidget(options) {
             return;
         }
         teardownDraggable();
-        container.style.cssText = "";
-        applyPreset(container, preset, styleOverrides);
-        if (anim) {
-            container.style.transition = anim.transition;
-        }
-        if (!state.get().visible) {
-            container.style.display = "none";
-            if (anim) {
-                Object.assign(container.style, anim.hidden);
-            }
-        }
+        clearAxisOverrides();
+        resetToPreset(preset);
         state.update((s)=>({
                 ...s,
                 preset,
-                heightState: "normal"
+                heightState: "normal",
+                widthState: "normal"
             }));
         setupDraggable();
         send("heightState", "normal");
+        send("widthState", "normal");
     }
     function maximize() {
         setPreset("fullscreen");
@@ -924,58 +1030,21 @@ function provideWidget(options) {
         setPreset(initialPreset);
     }
     function maximizeHeight(offset) {
-        if (state.get().destroyed) return;
-        if (state.get().preset === "inline") return;
-        teardownDraggable();
-        container.style.cssText = "";
-        applyPreset(container, state.get().preset, styleOverrides);
-        if (anim) {
-            container.style.transition = anim.transition;
-        }
-        let o;
-        if (offset !== undefined) {
-            o = offset;
-        } else {
-            const rect = container.getBoundingClientRect();
-            const vh = globalThis.innerHeight;
-            o = rect.width === 0 && rect.height === 0 ? 20 : Math.max(0, Math.min(rect.top, vh - rect.bottom));
-        }
-        container.style.top = `${o}px`;
-        container.style.bottom = "";
-        container.style.height = `calc(100vh - ${o * 2}px)`;
-        state.update((s)=>({
-                ...s,
-                heightState: "maximized"
-            }));
-        setupDraggable();
-        send("heightState", "maximized");
+        maximizeAxis("height", offset);
     }
     function minimizeHeight(height) {
-        if (state.get().destroyed) return;
-        if (state.get().preset === "inline") return;
-        teardownDraggable();
-        container.style.cssText = "";
-        applyPreset(container, state.get().preset, styleOverrides);
-        if (anim) {
-            container.style.transition = anim.transition;
-        }
-        if (!state.get().visible) {
-            container.style.display = "none";
-            if (anim) {
-                Object.assign(container.style, anim.hidden);
-            }
-        }
-        container.style.height = `${height ?? 48}px`;
-        state.update((s)=>({
-                ...s,
-                heightState: "minimized"
-            }));
-        setupDraggable();
-        send("heightState", "minimized");
+        minimizeAxis("height", height);
     }
-    function resetHeight() {
+    function maximizeWidth(offset) {
+        maximizeAxis("width", offset);
+    }
+    function minimizeWidth(width) {
+        minimizeAxis("width", width);
+    }
+    function reset() {
         if (state.get().destroyed) return;
         if (state.get().preset === "inline") return;
+        clearAxisOverrides();
         setPreset(state.get().preset);
     }
     function requestNativeFullscreen() {
@@ -1005,6 +1074,7 @@ function provideWidget(options) {
                 destroyed: true,
                 preset: s.preset,
                 heightState: s.heightState,
+                widthState: s.widthState,
                 detached: false,
                 isSmallScreen: s.isSmallScreen
             }));
@@ -1037,26 +1107,19 @@ function provideWidget(options) {
         originalParent.insertBefore(placeholderEl, container);
         document.body.appendChild(container);
         teardownDraggable();
-        container.style.cssText = "";
-        applyPreset(container, "float", styleOverrides);
-        if (anim) {
-            container.style.transition = anim.transition;
-        }
-        if (!s.visible) {
-            container.style.display = "none";
-            if (anim) {
-                Object.assign(container.style, anim.hidden);
-            }
-        }
+        clearAxisOverrides();
+        resetToPreset("float");
         state.update((st)=>({
                 ...st,
                 preset: "float",
                 detached: true,
-                heightState: "normal"
+                heightState: "normal",
+                widthState: "normal"
             }));
         setupDraggable();
         send("detached", true);
         send("heightState", "normal");
+        send("widthState", "normal");
     }
     function dock() {
         const s = state.get();
@@ -1067,26 +1130,19 @@ function provideWidget(options) {
         placeholderEl.remove();
         placeholderEl = null;
         const restorePreset = presetBeforeDetach ?? "inline";
-        container.style.cssText = "";
-        applyPreset(container, restorePreset, styleOverrides);
-        if (anim) {
-            container.style.transition = anim.transition;
-        }
-        if (!s.visible) {
-            container.style.display = "none";
-            if (anim) {
-                Object.assign(container.style, anim.hidden);
-            }
-        }
+        clearAxisOverrides();
+        resetToPreset(restorePreset);
         state.update((st)=>({
                 ...st,
                 preset: restorePreset,
                 detached: false,
-                heightState: "normal"
+                heightState: "normal",
+                widthState: "normal"
             }));
         setupDraggable();
         send("detached", false);
         send("heightState", "normal");
+        send("widthState", "normal");
         originalParent = null;
         presetBeforeDetach = null;
     }
@@ -1112,7 +1168,9 @@ function provideWidget(options) {
         minimize,
         maximizeHeight,
         minimizeHeight,
-        resetHeight,
+        maximizeWidth,
+        minimizeWidth,
+        reset,
         requestNativeFullscreen,
         exitNativeFullscreen,
         detach,

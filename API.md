@@ -133,30 +133,32 @@ interface WidgetProviderOptions {
 
 The object returned by `provideWidget()`.
 
-| Method / Property           | Signature                                                         | Description                                                                    |
-| --------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `show()`                    | `() => void`                                                      | Show the widget container                                                      |
-| `hide()`                    | `() => void`                                                      | Hide the widget container                                                      |
-| `toggle()`                  | `() => void`                                                      | Toggle visibility                                                              |
-| `destroy()`                 | `() => void`                                                      | Remove iframe, listeners, DOM elements. Irreversible                           |
-| `setPreset(preset)`         | `(preset: StylePreset) => void`                                   | Switch style preset at runtime                                                 |
-| `maximize()`                | `() => void`                                                      | Switch to fullscreen preset                                                    |
-| `minimize()`                | `() => void`                                                      | Switch back to initial preset                                                  |
-| `maximizeHeight(offset?)`   | `(offset?: number) => void`                                       | Maximize height keeping width/position. No-op when inline                      |
-| `minimizeHeight(height?)`   | `(height?: number) => void`                                       | Collapse to minimal height (default 48px). No-op when inline                   |
-| `resetHeight()`             | `() => void`                                                      | Reset height to current preset's default. No-op when inline                    |
-| `requestNativeFullscreen()` | `() => Promise<void>`                                             | Browser fullscreen for iframe                                                  |
-| `exitNativeFullscreen()`    | `() => Promise<void>`                                             | Exit browser fullscreen                                                        |
-| `detach()`                  | `() => void`                                                      | Float an inline widget to document.body, leaving a placeholder. Inline only    |
-| `dock()`                    | `() => void`                                                      | Return a detached widget to its original parentContainer                       |
-| `send(type, payload?)`      | `<T>(type: string, payload?: T) => void`                          | Send message to iframe                                                         |
-| `onMessage(type, handler)`  | `<T>(type: string, handler: (payload: T) => void) => Unsubscribe` | Listen for iframe messages                                                     |
-| `subscribe(cb)`             | `(cb: (state: WidgetState) => void) => Unsubscribe`               | Reactive state subscription                                                    |
-| `get()`                     | `() => WidgetState`                                               | Get current state snapshot                                                     |
-| `iframe`                    | `readonly HTMLIFrameElement`                                      | Direct iframe element reference                                                |
-| `container`                 | `readonly HTMLElement`                                             | Direct container div reference                                                 |
-| `trigger`                   | `readonly HTMLElement \| null`                                    | Trigger button reference, or null                                              |
-| `placeholder`               | `readonly HTMLElement \| null`                                    | Placeholder element reference (only present while detached), or null           |
+| Method / Property           | Signature                                                         | Description                                                                 |
+| --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `show()`                    | `() => void`                                                      | Show the widget container                                                   |
+| `hide()`                    | `() => void`                                                      | Hide the widget container                                                   |
+| `toggle()`                  | `() => void`                                                      | Toggle visibility                                                           |
+| `destroy()`                 | `() => void`                                                      | Remove iframe, listeners, DOM elements. Irreversible                        |
+| `setPreset(preset)`         | `(preset: StylePreset) => void`                                   | Switch style preset at runtime                                              |
+| `maximize()`                | `() => void`                                                      | Switch to fullscreen preset                                                 |
+| `minimize()`                | `() => void`                                                      | Switch back to initial preset                                               |
+| `maximizeHeight(offset?)`   | `(offset?: number) => void`                                       | Maximize height keeping width/position. No-op when inline                   |
+| `minimizeHeight(height?)`   | `(height?: number) => void`                                       | Collapse to minimal height (default 48px). No-op when inline                |
+| `maximizeWidth(offset?)`    | `(offset?: number) => void`                                       | Maximize width keeping height/position. No-op when inline                   |
+| `minimizeWidth(width?)`     | `(width?: number) => void`                                        | Collapse to minimal width (default 48px). No-op when inline                 |
+| `reset()`                   | `() => void`                                                      | Reset both height and width to current preset's defaults. No-op when inline |
+| `requestNativeFullscreen()` | `() => Promise<void>`                                             | Browser fullscreen for iframe                                               |
+| `exitNativeFullscreen()`    | `() => Promise<void>`                                             | Exit browser fullscreen                                                     |
+| `detach()`                  | `() => void`                                                      | Float an inline widget to document.body, leaving a placeholder. Inline only |
+| `dock()`                    | `() => void`                                                      | Return a detached widget to its original parentContainer                    |
+| `send(type, payload?)`      | `<T>(type: string, payload?: T) => void`                          | Send message to iframe                                                      |
+| `onMessage(type, handler)`  | `<T>(type: string, handler: (payload: T) => void) => Unsubscribe` | Listen for iframe messages                                                  |
+| `subscribe(cb)`             | `(cb: (state: WidgetState) => void) => Unsubscribe`               | Reactive state subscription                                                 |
+| `get()`                     | `() => WidgetState`                                               | Get current state snapshot                                                  |
+| `iframe`                    | `readonly HTMLIFrameElement`                                      | Direct iframe element reference                                             |
+| `container`                 | `readonly HTMLElement`                                            | Direct container div reference                                              |
+| `trigger`                   | `readonly HTMLElement \| null`                                    | Trigger button reference, or null                                           |
+| `placeholder`               | `readonly HTMLElement \| null`                                    | Placeholder element reference (only present while detached), or null        |
 
 ---
 
@@ -169,6 +171,7 @@ interface WidgetState {
 	destroyed: boolean;
 	preset: StylePreset;
 	heightState: HeightState;
+	widthState: WidthState;
 	/** Whether the widget has been detached from its parentContainer */
 	detached: boolean;
 }
@@ -176,10 +179,26 @@ interface WidgetState {
 
 ---
 
+### `DimensionState`
+
+```typescript
+type DimensionState = "normal" | "minimized" | "maximized";
+```
+
+---
+
 ### `HeightState`
 
 ```typescript
-type HeightState = "normal" | "minimized" | "maximized";
+type HeightState = DimensionState;
+```
+
+---
+
+### `WidthState`
+
+```typescript
+type WidthState = DimensionState;
 ```
 
 ---

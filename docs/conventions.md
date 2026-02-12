@@ -56,13 +56,14 @@ Actions that don't apply to the current preset silently return (no-op). Guard pa
 
 ```typescript
 function someAction(): void {
-    if (state.get().destroyed) return;
-    if (state.get().preset === "inline") return; // no-op for inline
-    // ... action logic
+	if (state.get().destroyed) return;
+	if (state.get().preset === "inline") return; // no-op for inline
+	// ... action logic
 }
 ```
 
 Current guards:
+
 - **Height actions** (`maximizeHeight`, `minimizeHeight`, `resetHeight`) → no-op when `preset === "inline"`
 - **Detach** → no-op when `preset !== "inline"` or no `parentContainer`
 - **Draggable** → only set up when `preset === "float"`

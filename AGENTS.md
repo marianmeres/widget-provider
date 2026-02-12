@@ -28,7 +28,7 @@ Embeds an iframe-based widget into a host page with:
 - Style presets (float, fullscreen, inline) for positioning
 - postMessage-based bidirectional communication (namespaced with `@@__widget_provider__@@`)
 - Show/hide animations (fade-scale, slide-up)
-- Height control (maximize/minimize/reset — no-op when preset is inline)
+- Height and width control (maximize/minimize/reset for each axis — no-op when preset is inline)
 - Optional trigger button (auto-toggles with widget visibility)
 - Drag-and-drop (float preset only, via handle bar)
 - Detach/dock workflow (inline preset only — float the widget, leave placeholder)

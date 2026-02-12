@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -32,7 +32,9 @@
 		<button id="btn-minimize">Minimize</button>
 		<button id="btn-max-height">Max Height</button>
 		<button id="btn-min-height">Min Height</button>
-		<button id="btn-reset-height">Reset Height</button>
+		<button id="btn-max-width">Max Width</button>
+		<button id="btn-min-width">Min Width</button>
+		<button id="btn-reset">Reset</button>
 		<button id="btn-detach">Detach</button>
 		<button id="btn-dock">Dock</button>
 		<button id="btn-hide">Hide</button>
@@ -40,6 +42,7 @@
 		<button id="btn-native-fs">Native Fullscreen</button>
 		<button id="btn-exit-fs">Exit Fullscreen</button>
 		<pre id="height-state">heightState: --</pre>
+		<pre id="width-state">widthState: --</pre>
 		<pre id="detached-state">detached: --</pre>
 		<div id="log"></div>
 
@@ -47,11 +50,16 @@
 			const PREFIX = "@@__widget_provider__@@";
 			const log = document.getElementById("log");
 			const heightStateEl = document.getElementById("height-state");
-			const detachedStateEl = document.getElementById("detached-state");
+			const widthStateEl = document.getElementById("width-state");
+			const detachedStateEl = document.getElementById(
+				"detached-state",
+			);
 
 			function addLog(msg) {
 				const div = document.createElement("div");
-				div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+				div.textContent = `[${
+					new Date().toLocaleTimeString()
+				}] ${msg}`;
 				log.prepend(div);
 			}
 
@@ -63,15 +71,24 @@
 
 				const type = data.type.slice(PREFIX.length);
 				addLog(
-					`Received: ${type} ${JSON.stringify(data.payload ?? "")}`,
+					`Received: ${type} ${
+						JSON.stringify(data.payload ?? "")
+					}`,
 				);
 
 				if (type === "heightState") {
-					heightStateEl.textContent = `heightState: ${data.payload}`;
+					heightStateEl.textContent =
+						`heightState: ${data.payload}`;
+				}
+
+				if (type === "widthState") {
+					widthStateEl.textContent =
+						`widthState: ${data.payload}`;
 				}
 
 				if (type === "detached") {
-					detachedStateEl.textContent = `detached: ${data.payload}`;
+					detachedStateEl.textContent =
+						`detached: ${data.payload}`;
 				}
 
 				// Echo back
@@ -114,13 +131,31 @@
 				.addEventListener("click", () => sendControl("minimize"));
 			document
 				.getElementById("btn-max-height")
-				.addEventListener("click", () => sendControl("maximizeHeight"));
+				.addEventListener(
+					"click",
+					() => sendControl("maximizeHeight"),
+				);
 			document
 				.getElementById("btn-min-height")
-				.addEventListener("click", () => sendControl("minimizeHeight"));
+				.addEventListener(
+					"click",
+					() => sendControl("minimizeHeight"),
+				);
 			document
-				.getElementById("btn-reset-height")
-				.addEventListener("click", () => sendControl("resetHeight"));
+				.getElementById("btn-max-width")
+				.addEventListener(
+					"click",
+					() => sendControl("maximizeWidth"),
+				);
+			document
+				.getElementById("btn-min-width")
+				.addEventListener(
+					"click",
+					() => sendControl("minimizeWidth"),
+				);
+			document
+				.getElementById("btn-reset")
+				.addEventListener("click", () => sendControl("reset"));
 			document
 				.getElementById("btn-detach")
 				.addEventListener("click", () => sendControl("detach"));

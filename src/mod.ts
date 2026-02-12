@@ -9,6 +9,7 @@ export { makeDraggable } from "./draggable.ts";
 
 export type {
 	AnimatePreset,
+	DimensionState,
 	DraggableHandle,
 	DraggableOptions,
 	HeightState,
@@ -21,6 +22,7 @@ export type {
 	WidgetProviderApi,
 	WidgetProviderOptions,
 	WidgetState,
+	WidthState,
 } from "./types.ts";
 
 export { MSG_PREFIX } from "./types.ts";

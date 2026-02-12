@@ -10,8 +10,14 @@ export interface WidgetMessage<T = unknown> {
 /** Built-in positioning modes for the widget container */
 export type StylePreset = "float" | "fullscreen" | "inline";
 
+/** Dimension states for the widget container (used by both height and width) */
+export type DimensionState = "normal" | "minimized" | "maximized";
+
 /** Height states for the widget container */
-export type HeightState = "normal" | "minimized" | "maximized";
+export type HeightState = DimensionState;
+
+/** Width states for the widget container */
+export type WidthState = DimensionState;
 
 /** Named animation presets for show/hide transitions */
 export type AnimatePreset = "fade-scale" | "slide-up";
@@ -147,6 +153,7 @@ export interface WidgetState {
 	destroyed: boolean;
 	preset: StylePreset;
 	heightState: HeightState;
+	widthState: WidthState;
 	/** Whether the widget has been detached from its parentContainer */
 	detached: boolean;
 	/** Whether the viewport width is below the configured smallScreenBreakpoint */
@@ -175,8 +182,12 @@ export interface WidgetProviderApi {
 	maximizeHeight(offset?: number): void;
 	/** Collapse the widget to a minimal height (default 48px) */
 	minimizeHeight(height?: number): void;
-	/** Reset the widget height back to the current preset's default */
-	resetHeight(): void;
+	/** Maximize only the widget width, keeping height and vertical position */
+	maximizeWidth(offset?: number): void;
+	/** Collapse the widget to a minimal width (default 48px) */
+	minimizeWidth(width?: number): void;
+	/** Reset both height and width back to the current preset's defaults */
+	reset(): void;
 	/** Request native browser fullscreen for the iframe */
 	requestNativeFullscreen(): Promise<void>;
 	/** Exit native browser fullscreen */

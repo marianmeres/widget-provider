@@ -112,6 +112,7 @@ export function provideWidget(
 		destroyed: false,
 		preset: stylePreset,
 		heightState: "normal",
+		widthState: "normal",
 		detached: false,
 		isSmallScreen: checkSmallScreen(),
 	});
@@ -166,6 +167,7 @@ export function provideWidget(
 			case "ready":
 				state.update((s) => ({ ...s, ready: true }));
 				send("heightState", state.get().heightState);
+				send("widthState", state.get().widthState);
 				send("detached", state.get().detached);
 				send("isSmallScreen", state.get().isSmallScreen);
 				break;
@@ -188,8 +190,18 @@ export function provideWidget(
 					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
-			case "resetHeight":
-				resetHeight();
+			case "maximizeWidth":
+				maximizeWidth(
+					typeof data.payload === "number" ? data.payload : undefined,
+				);
+				break;
+			case "minimizeWidth":
+				minimizeWidth(
+					typeof data.payload === "number" ? data.payload : undefined,
+				);
+				break;
+			case "reset":
+				reset();
 				break;
 			case "hide":
 				hide();
@@ -264,6 +276,133 @@ export function provideWidget(
 	}
 
 	setupDraggable();
+
+	// --- Axis dimension control (shared height/width logic) ---
+
+	type Axis = "height" | "width";
+
+	// Remembers CSS overrides per axis so the other axis can be re-applied
+	// after a full cssText reset
+	let heightOverrides: Record<string, string> | null = null;
+	let widthOverrides: Record<string, string> | null = null;
+
+	const AXIS_CONFIG = {
+		height: {
+			startProp: "top" as const,
+			endProp: "bottom" as const,
+			sizeProp: "height" as const,
+			viewportUnit: "vh",
+			viewportSize: () => globalThis.innerHeight,
+			stateKey: "heightState" as const,
+			getOverrides: () => heightOverrides,
+			setOverrides: (v: Record<string, string> | null) => {
+				heightOverrides = v;
+			},
+		},
+		width: {
+			startProp: "left" as const,
+			endProp: "right" as const,
+			sizeProp: "width" as const,
+			viewportUnit: "vw",
+			viewportSize: () => globalThis.innerWidth,
+			stateKey: "widthState" as const,
+			getOverrides: () => widthOverrides,
+			setOverrides: (v: Record<string, string> | null) => {
+				widthOverrides = v;
+			},
+		},
+	};
+
+	/** Reset container CSS to preset baseline, re-applying the other axis's overrides. */
+	function resetToPreset(
+		presetOverride?: StylePreset,
+		skipAxisReapply?: Axis,
+	): void {
+		const preset = presetOverride ?? state.get().preset;
+		container.style.cssText = "";
+		applyPreset(container, preset, styleOverrides);
+		if (anim) {
+			container.style.transition = anim.transition;
+		}
+		if (!state.get().visible) {
+			container.style.display = "none";
+			if (anim) {
+				Object.assign(container.style, anim.hidden);
+			}
+		}
+		// Re-apply the other axis's saved overrides
+		for (const [axis, cfg] of Object.entries(AXIS_CONFIG)) {
+			if (axis === skipAxisReapply) continue;
+			const overrides = cfg.getOverrides();
+			if (overrides) {
+				Object.assign(container.style, overrides);
+			}
+		}
+	}
+
+	function clearAxisOverrides(): void {
+		heightOverrides = null;
+		widthOverrides = null;
+	}
+
+	function maximizeAxis(axis: Axis, offset?: number): void {
+		if (state.get().destroyed) return;
+		if (state.get().preset === "inline") return;
+
+		const cfg = AXIS_CONFIG[axis];
+		teardownDraggable();
+		resetToPreset(undefined, axis);
+
+		// Calculate offset from the known preset position
+		let o: number;
+		if (offset !== undefined) {
+			o = offset;
+		} else {
+			const rect = container.getBoundingClientRect();
+			const vs = cfg.viewportSize();
+			if (rect.width === 0 && rect.height === 0) {
+				o = 20;
+			} else {
+				const startDist = axis === "height" ? rect.top : rect.left;
+				const endDist = vs -
+					(axis === "height" ? rect.bottom : rect.right);
+				o = Math.max(0, Math.min(startDist, endDist));
+			}
+		}
+
+		// Save and apply overrides
+		const overrides: Record<string, string> = {
+			[cfg.startProp]: `${o}px`,
+			[cfg.endProp]: "",
+			[cfg.sizeProp]: `calc(100${cfg.viewportUnit} - ${o * 2}px)`,
+		};
+		cfg.setOverrides(overrides);
+		Object.assign(container.style, overrides);
+
+		state.update((s) => ({ ...s, [cfg.stateKey]: "maximized" }));
+		setupDraggable();
+		send(cfg.stateKey, "maximized");
+	}
+
+	function minimizeAxis(axis: Axis, size?: number): void {
+		if (state.get().destroyed) return;
+		if (state.get().preset === "inline") return;
+
+		const cfg = AXIS_CONFIG[axis];
+		teardownDraggable();
+		resetToPreset(undefined, axis);
+
+		// Save and apply overrides
+		const overrides: Record<string, string> = {
+			[cfg.sizeProp]: `${size ?? 48}px`,
+		};
+		cfg.setOverrides(overrides);
+		Object.assign(container.style, overrides);
+
+		state.update((s) => ({ ...s, [cfg.stateKey]: "minimized" }));
+		setupDraggable();
+		send(cfg.stateKey, "minimized");
+	}
 
 	// trigger button
 	const triggerOpts = options.trigger;
@@ -343,20 +482,17 @@ export function provideWidget(
 			return;
 		}
 		teardownDraggable();
-		container.style.cssText = "";
-		applyPreset(container, preset, styleOverrides);
-		if (anim) {
-			container.style.transition = anim.transition;
-		}
-		if (!state.get().visible) {
-			container.style.display = "none";
-			if (anim) {
-				Object.assign(container.style, anim.hidden);
-			}
-		}
-		state.update((s) => ({ ...s, preset, heightState: "normal" }));
+		clearAxisOverrides();
+		resetToPreset(preset);
+		state.update((s) => ({
+			...s,
+			preset,
+			heightState: "normal",
+			widthState: "normal",
+		}));
 		setupDraggable();
 		send("heightState", "normal");
+		send("widthState", "normal");
 	}
 
 	function maximize(): void {
@@ -368,61 +504,25 @@ export function provideWidget(
 	}
 
 	function maximizeHeight(offset?: number): void {
-		if (state.get().destroyed) return;
-		if (state.get().preset === "inline") return;
-		teardownDraggable();
-		// Full reset to preset position first (clears any drag positioning)
-		container.style.cssText = "";
-		applyPreset(container, state.get().preset, styleOverrides);
-		if (anim) {
-			container.style.transition = anim.transition;
-		}
-		// Now calculate offset from the known preset position
-		let o: number;
-		if (offset !== undefined) {
-			o = offset;
-		} else {
-			const rect = container.getBoundingClientRect();
-			const vh = globalThis.innerHeight;
-			o = (rect.width === 0 && rect.height === 0)
-				? 20
-				: Math.max(0, Math.min(rect.top, vh - rect.bottom));
-		}
-		// Override for maximized height
-		container.style.top = `${o}px`;
-		container.style.bottom = "";
-		container.style.height = `calc(100vh - ${o * 2}px)`;
-		state.update((s) => ({ ...s, heightState: "maximized" }));
-		setupDraggable();
-		send("heightState", "maximized");
+		maximizeAxis("height", offset);
 	}
 
 	function minimizeHeight(height?: number): void {
-		if (state.get().destroyed) return;
-		if (state.get().preset === "inline") return;
-		teardownDraggable();
-		// Restore original preset positioning (e.g. bottom-anchored for float)
-		// before overriding height
-		container.style.cssText = "";
-		applyPreset(container, state.get().preset, styleOverrides);
-		if (anim) {
-			container.style.transition = anim.transition;
-		}
-		if (!state.get().visible) {
-			container.style.display = "none";
-			if (anim) {
-				Object.assign(container.style, anim.hidden);
-			}
-		}
-		container.style.height = `${height ?? 48}px`;
-		state.update((s) => ({ ...s, heightState: "minimized" }));
-		setupDraggable();
-		send("heightState", "minimized");
+		minimizeAxis("height", height);
 	}
 
-	function resetHeight(): void {
+	function maximizeWidth(offset?: number): void {
+		maximizeAxis("width", offset);
+	}
+
+	function minimizeWidth(width?: number): void {
+		minimizeAxis("width", width);
+	}
+
+	function reset(): void {
 		if (state.get().destroyed) return;
 		if (state.get().preset === "inline") return;
+		clearAxisOverrides();
 		setPreset(state.get().preset);
 	}
 
@@ -456,6 +556,7 @@ export function provideWidget(
 			destroyed: true,
 			preset: s.preset,
 			heightState: s.heightState,
+			widthState: s.widthState,
 			detached: false,
 			isSmallScreen: s.isSmallScreen,
 		}));
@@ -505,17 +606,8 @@ export function provideWidget(
 
 		// Switch visual style to float
 		teardownDraggable();
-		container.style.cssText = "";
-		applyPreset(container, "float", styleOverrides);
-		if (anim) {
-			container.style.transition = anim.transition;
-		}
-		if (!s.visible) {
-			container.style.display = "none";
-			if (anim) {
-				Object.assign(container.style, anim.hidden);
-			}
-		}
+		clearAxisOverrides();
+		resetToPreset("float");
 
 		// Update state
 		state.update((st) => ({
@@ -523,12 +615,14 @@ export function provideWidget(
 			preset: "float",
 			detached: true,
 			heightState: "normal",
+			widthState: "normal",
 		}));
 
 		setupDraggable();
 
 		send("detached", true);
 		send("heightState", "normal");
+		send("widthState", "normal");
 	}
 
 	function dock(): void {
@@ -545,17 +639,8 @@ export function provideWidget(
 
 		// Restore inline style
 		const restorePreset = presetBeforeDetach ?? "inline";
-		container.style.cssText = "";
-		applyPreset(container, restorePreset, styleOverrides);
-		if (anim) {
-			container.style.transition = anim.transition;
-		}
-		if (!s.visible) {
-			container.style.display = "none";
-			if (anim) {
-				Object.assign(container.style, anim.hidden);
-			}
-		}
+		clearAxisOverrides();
+		resetToPreset(restorePreset);
 
 		// Update state
 		state.update((st) => ({
@@ -563,12 +648,14 @@ export function provideWidget(
 			preset: restorePreset,
 			detached: false,
 			heightState: "normal",
+			widthState: "normal",
 		}));
 
 		setupDraggable();
 
 		send("detached", false);
 		send("heightState", "normal");
+		send("widthState", "normal");
 
 		// Clean up references
 		originalParent = null;
@@ -605,7 +692,9 @@ export function provideWidget(
 		minimize,
 		maximizeHeight,
 		minimizeHeight,
-		resetHeight,
+		maximizeWidth,
+		minimizeWidth,
+		reset,
 		requestNativeFullscreen,
 		exitNativeFullscreen,
 		detach,

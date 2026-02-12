@@ -35,13 +35,13 @@ Built-in control messages (from iframe):
 
 ## Preset-specific Behavior
 
-| Feature           | inline | float | fullscreen |
-| ----------------- | ------ | ----- | ---------- |
-| Height control    | no-op  | yes   | yes        |
-| Draggable         | no     | yes   | no         |
-| Detach/dock       | yes    | no    | no         |
-| Trigger button    | yes    | yes   | yes        |
-| Animations        | yes    | yes   | yes        |
+| Feature        | inline | float | fullscreen |
+| -------------- | ------ | ----- | ---------- |
+| Height control | no-op  | yes   | yes        |
+| Draggable      | no     | yes   | no         |
+| Detach/dock    | yes    | no    | no         |
+| Trigger button | yes    | yes   | yes        |
+| Animations     | yes    | yes   | yes        |
 
 ## Key Files
 
@@ -55,8 +55,8 @@ Built-in control messages (from iframe):
 
 ## External Dependencies
 
-| Dependency             | Purpose                                                    |
-| ---------------------- | ---------------------------------------------------------- |
+| Dependency            | Purpose                                                    |
+| --------------------- | ---------------------------------------------------------- |
 | `@marianmeres/store`  | Reactive state store (Svelte-compatible subscribe pattern) |
 | `@marianmeres/pubsub` | Internal message dispatch for onMessage handlers           |
 | `@marianmeres/clog`   | Debug logging                                              |
