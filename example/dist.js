@@ -164,6 +164,13 @@ function resolveEdge(atLeft, atRight, atTop, atBottom) {
         atTop,
         atBottom
     ].filter(Boolean).length;
+    if (count === 2) {
+        if (atTop && atLeft) return "top-left";
+        if (atTop && atRight) return "top-right";
+        if (atBottom && atLeft) return "bottom-left";
+        if (atBottom && atRight) return "bottom-right";
+        return null;
+    }
     if (count !== 1) return null;
     if (atLeft) return "left";
     if (atRight) return "right";
@@ -216,6 +223,7 @@ function makeDraggable(container, iframe, options = {}) {
     let activeEdge = null;
     let ghostEl = null;
     let snapPending = false;
+    let resetPending = false;
     function detectEdge(newLeft, newTop) {
         if (!edgeSnapEnabled) return null;
         const vw = globalThis.innerWidth;
@@ -232,15 +240,20 @@ function makeDraggable(container, iframe, options = {}) {
         Object.assign(ghost.style, {
             position: "fixed",
             boxSizing: "border-box",
-            border: "2px dashed rgba(100, 149, 237, 0.7)",
+            border: "2px dashed rgba(128, 128, 128, 0.5)",
             borderRadius: "8px",
-            background: "rgba(100, 149, 237, 0.08)",
+            background: "rgba(128, 128, 128, 0.1)",
             zIndex: "9999",
             pointerEvents: "none",
             transition: "opacity 150ms ease",
             opacity: "0"
         });
-        if (edge === "left" || edge === "right") {
+        if (edge.includes("-")) {
+            ghost.style.top = `${boundaryPadding}px`;
+            ghost.style.left = `${boundaryPadding}px`;
+            ghost.style.width = `${vw - boundaryPadding * 2}px`;
+            ghost.style.height = `${vh - boundaryPadding * 2}px`;
+        } else if (edge === "left" || edge === "right") {
             ghost.style.top = `${boundaryPadding}px`;
             ghost.style.left = `${rect.left}px`;
             ghost.style.width = `${rect.width}px`;
@@ -266,20 +279,21 @@ function makeDraggable(container, iframe, options = {}) {
             ghostEl = null;
         }
     }
-    function cancelEdgeSnap() {
+    function cancelSnap() {
         if (dwellTimer !== null) {
             clearTimeout(dwellTimer);
             dwellTimer = null;
         }
         activeEdge = null;
         snapPending = false;
+        resetPending = false;
         removeGhost();
     }
     function onPointerDown(e) {
         if (e.button !== 0) return;
         e.preventDefault();
         handle.setPointerCapture(e.pointerId);
-        cancelEdgeSnap();
+        cancelSnap();
         isDragging = true;
         handle.style.cursor = "grabbing";
         savedTransition = container.style.transition;
@@ -310,16 +324,28 @@ function makeDraggable(container, iframe, options = {}) {
         const newTop = Math.max(boundaryPadding, Math.min(startTop + dy, vh - ch - boundaryPadding));
         container.style.left = `${newLeft}px`;
         container.style.top = `${newTop}px`;
-        if (!edgeSnapEnabled) return;
+        if (!edgeSnapEnabled && !options.resetSnap) return;
         const edge = detectEdge(newLeft, newTop);
-        if (edge === activeEdge) return;
-        cancelEdgeSnap();
+        const wantReset = !edge && !!options.resetSnap?.isActive();
+        if (edge && edge === activeEdge) return;
+        if (wantReset && (resetPending || dwellTimer && !activeEdge)) return;
+        cancelSnap();
         if (edge) {
             activeEdge = edge;
             dwellTimer = setTimeout(()=>{
                 dwellTimer = null;
                 ghostEl = createGhost(edge);
                 snapPending = true;
+            }, dwellMs);
+        } else if (wantReset) {
+            dwellTimer = setTimeout(()=>{
+                dwellTimer = null;
+                ghostEl = options.resetSnap.createGhost();
+                document.body.appendChild(ghostEl);
+                requestAnimationFrame(()=>{
+                    ghostEl.style.opacity = "1";
+                });
+                resetPending = true;
             }, dwellMs);
         }
     }
@@ -336,10 +362,13 @@ function makeDraggable(container, iframe, options = {}) {
         const isCancel = e.type === "pointercancel";
         if (!isCancel && snapPending && activeEdge && onEdgeSnap) {
             const edge = activeEdge;
-            cancelEdgeSnap();
+            cancelSnap();
             queueMicrotask(()=>onEdgeSnap(edge));
+        } else if (!isCancel && resetPending && options.onResetSnap) {
+            cancelSnap();
+            queueMicrotask(()=>options.onResetSnap());
         } else {
-            cancelEdgeSnap();
+            cancelSnap();
         }
     }
     handle.addEventListener("pointerdown", onPointerDown);
@@ -350,7 +379,7 @@ function makeDraggable(container, iframe, options = {}) {
         container.style.right = "";
     }
     function destroy() {
-        cancelEdgeSnap();
+        cancelSnap();
         handle.removeEventListener("pointerdown", onPointerDown);
         if (isDragging) {
             iframe.style.pointerEvents = "";
@@ -1053,9 +1082,61 @@ function provideWidget(options) {
         return {
             ...base,
             edgeSnap: base.edgeSnap ?? true,
+            resetSnap: {
+                isActive: ()=>{
+                    const s = state.get();
+                    return s.heightState === "maximized" && s.widthState === "maximized";
+                },
+                createGhost: ()=>{
+                    const presetStyle = {
+                        ...STYLE_PRESETS[state.get().preset],
+                        ...styleOverrides
+                    };
+                    const rect = container.getBoundingClientRect();
+                    const ghost = document.createElement("div");
+                    Object.assign(ghost.style, {
+                        position: "fixed",
+                        boxSizing: "border-box",
+                        border: "2px dashed rgba(128, 128, 128, 0.5)",
+                        borderRadius: "8px",
+                        background: "rgba(128, 128, 128, 0.1)",
+                        zIndex: "10001",
+                        pointerEvents: "none",
+                        transition: "opacity 150ms ease",
+                        opacity: "0",
+                        top: `${rect.top}px`,
+                        left: `${rect.left}px`,
+                        width: presetStyle.width ?? "380px",
+                        height: presetStyle.height ?? "520px"
+                    });
+                    return ghost;
+                }
+            },
+            onResetSnap: ()=>{
+                const s = state.get();
+                if (s.heightState === "maximized" && s.widthState === "maximized") {
+                    const presetStyle = {
+                        ...STYLE_PRESETS[s.preset],
+                        ...styleOverrides
+                    };
+                    container.style.width = presetStyle.width ?? "";
+                    container.style.height = presetStyle.height ?? "";
+                    clearAxisOverrides();
+                    state.update((st)=>({
+                            ...st,
+                            heightState: "normal",
+                            widthState: "normal"
+                        }));
+                    send("heightState", "normal");
+                    send("widthState", "normal");
+                }
+            },
             onEdgeSnap: (edge)=>{
                 const rect = container.getBoundingClientRect();
-                if (edge === "left" || edge === "right") {
+                if (edge.includes("-")) {
+                    maximizeHeight();
+                    maximizeWidth();
+                } else if (edge === "left" || edge === "right") {
                     maximizeHeight();
                     container.style.left = `${rect.left}px`;
                     container.style.right = "auto";

@@ -32,7 +32,9 @@ export type MessageHandler<T = unknown> = (payload: T) => void;
 export type Unsubscribe = () => void;
 
 /** Which viewport edge the widget was snapped to */
-export type SnapEdge = "left" | "right" | "top" | "bottom";
+export type SnapEdge =
+	| "left" | "right" | "top" | "bottom"
+	| "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 /** Configuration for edge-snap behavior (drag-to-edge maximize) */
 export interface EdgeSnapOptions {
@@ -63,6 +65,20 @@ export interface DraggableOptions {
 	 * axis maximize action.
 	 */
 	onEdgeSnap?: (edge: SnapEdge) => void;
+	/**
+	 * Reset-snap: opposite of edge-snap. When dragging away from edges,
+	 * shows a ghost preview after a dwell period and resets on release.
+	 * Provide `isActive` to control when reset-snap is available and
+	 * `createGhost` to build the preview element.
+	 */
+	resetSnap?: {
+		/** Whether reset-snap should activate (checked each pointer move) */
+		isActive: () => boolean;
+		/** Create the ghost preview element for the reset target */
+		createGhost: () => HTMLElement;
+	};
+	/** Called when pointer is released while the reset-snap ghost is showing */
+	onResetSnap?: () => void;
 }
 
 /** Control handle returned by makeDraggable, used for cleanup */

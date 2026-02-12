@@ -21,6 +21,13 @@ export function resolveEdge(
 	atBottom: boolean,
 ): SnapEdge | null {
 	const count = [atLeft, atRight, atTop, atBottom].filter(Boolean).length;
+	if (count === 2) {
+		if (atTop && atLeft) return "top-left";
+		if (atTop && atRight) return "top-right";
+		if (atBottom && atLeft) return "bottom-left";
+		if (atBottom && atRight) return "bottom-right";
+		return null;
+	}
 	if (count !== 1) return null;
 	if (atLeft) return "left";
 	if (atRight) return "right";
@@ -99,11 +106,12 @@ export function makeDraggable(
 	let startTop = 0;
 	let savedTransition = "";
 
-	// --- edge snap state ---
+	// --- snap state (shared by edge-snap and reset-snap) ---
 	let dwellTimer: ReturnType<typeof setTimeout> | null = null;
 	let activeEdge: SnapEdge | null = null;
 	let ghostEl: HTMLElement | null = null;
 	let snapPending = false;
+	let resetPending = false;
 
 	function detectEdge(newLeft: number, newTop: number): SnapEdge | null {
 		if (!edgeSnapEnabled) return null;
@@ -130,9 +138,9 @@ export function makeDraggable(
 			{
 				position: "fixed",
 				boxSizing: "border-box",
-				border: "2px dashed rgba(100, 149, 237, 0.7)",
+				border: "2px dashed rgba(128, 128, 128, 0.5)",
 				borderRadius: "8px",
-				background: "rgba(100, 149, 237, 0.08)",
+				background: "rgba(128, 128, 128, 0.1)",
 				zIndex: "9999",
 				pointerEvents: "none",
 				transition: "opacity 150ms ease",
@@ -140,7 +148,13 @@ export function makeDraggable(
 			} satisfies Partial<CSSStyleDeclaration>,
 		);
 
-		if (edge === "left" || edge === "right") {
+		if (edge.includes("-")) {
+			// Corner: maximize both axes preview — full viewport
+			ghost.style.top = `${boundaryPadding}px`;
+			ghost.style.left = `${boundaryPadding}px`;
+			ghost.style.width = `${vw - boundaryPadding * 2}px`;
+			ghost.style.height = `${vh - boundaryPadding * 2}px`;
+		} else if (edge === "left" || edge === "right") {
 			// Maximize height preview: full viewport height, same width/left
 			ghost.style.top = `${boundaryPadding}px`;
 			ghost.style.left = `${rect.left}px`;
@@ -173,13 +187,14 @@ export function makeDraggable(
 		}
 	}
 
-	function cancelEdgeSnap(): void {
+	function cancelSnap(): void {
 		if (dwellTimer !== null) {
 			clearTimeout(dwellTimer);
 			dwellTimer = null;
 		}
 		activeEdge = null;
 		snapPending = false;
+		resetPending = false;
 		removeGhost();
 	}
 
@@ -188,7 +203,7 @@ export function makeDraggable(
 		e.preventDefault();
 		handle.setPointerCapture(e.pointerId);
 
-		cancelEdgeSnap();
+		cancelSnap();
 
 		isDragging = true;
 		handle.style.cursor = "grabbing";
@@ -240,14 +255,17 @@ export function makeDraggable(
 		container.style.left = `${newLeft}px`;
 		container.style.top = `${newTop}px`;
 
-		// --- edge snap detection ---
-		if (!edgeSnapEnabled) return;
+		// --- snap detection (edge-snap and reset-snap) ---
+		if (!edgeSnapEnabled && !options.resetSnap) return;
 
 		const edge = detectEdge(newLeft, newTop);
+		const wantReset = !edge && !!options.resetSnap?.isActive();
 
-		if (edge === activeEdge) return; // same edge (or still no edge), timer running
+		// No state change — stay in current snap mode
+		if (edge && edge === activeEdge) return;
+		if (wantReset && (resetPending || (dwellTimer && !activeEdge))) return;
 
-		cancelEdgeSnap();
+		cancelSnap();
 
 		if (edge) {
 			activeEdge = edge;
@@ -255,6 +273,16 @@ export function makeDraggable(
 				dwellTimer = null;
 				ghostEl = createGhost(edge);
 				snapPending = true;
+			}, dwellMs);
+		} else if (wantReset) {
+			dwellTimer = setTimeout(() => {
+				dwellTimer = null;
+				ghostEl = options.resetSnap!.createGhost();
+				document.body.appendChild(ghostEl);
+				requestAnimationFrame(() => {
+					ghostEl!.style.opacity = "1";
+				});
+				resetPending = true;
 			}, dwellMs);
 		}
 	}
@@ -271,16 +299,19 @@ export function makeDraggable(
 		handle.removeEventListener("pointerup", onPointerUp);
 		handle.removeEventListener("pointercancel", onPointerUp);
 
-		// --- edge snap on release ---
+		// --- snap on release ---
 		const isCancel = e.type === "pointercancel";
 		if (!isCancel && snapPending && activeEdge && onEdgeSnap) {
 			const edge = activeEdge;
-			cancelEdgeSnap();
+			cancelSnap();
 			// Defer: callback triggers maximizeAxis -> teardownInteractions ->
 			// destroy() on this draggable. Must complete after this handler.
 			queueMicrotask(() => onEdgeSnap(edge));
+		} else if (!isCancel && resetPending && options.onResetSnap) {
+			cancelSnap();
+			queueMicrotask(() => options.onResetSnap!());
 		} else {
-			cancelEdgeSnap();
+			cancelSnap();
 		}
 	}
 
@@ -295,7 +326,7 @@ export function makeDraggable(
 	}
 
 	function destroy(): void {
-		cancelEdgeSnap();
+		cancelSnap();
 		handle.removeEventListener("pointerdown", onPointerDown);
 		if (isDragging) {
 			iframe.style.pointerEvents = "";

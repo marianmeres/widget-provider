@@ -270,11 +270,58 @@ export function provideWidget(
 		return {
 			...base,
 			edgeSnap: base.edgeSnap ?? true,
+			resetSnap: {
+				isActive: () => {
+					const s = state.get();
+					return s.heightState === "maximized" && s.widthState === "maximized";
+				},
+				createGhost: () => {
+					const presetStyle = { ...STYLE_PRESETS[state.get().preset], ...styleOverrides };
+					const rect = container.getBoundingClientRect();
+					const ghost = document.createElement("div");
+					Object.assign(ghost.style, {
+						position: "fixed",
+						boxSizing: "border-box",
+						border: "2px dashed rgba(128, 128, 128, 0.5)",
+						borderRadius: "8px",
+						background: "rgba(128, 128, 128, 0.1)",
+						zIndex: "10001",
+						pointerEvents: "none",
+						transition: "opacity 150ms ease",
+						opacity: "0",
+						top: `${rect.top}px`,
+						left: `${rect.left}px`,
+						width: presetStyle.width ?? "380px",
+						height: presetStyle.height ?? "520px",
+					} satisfies Partial<CSSStyleDeclaration>);
+					return ghost;
+				},
+			},
+			onResetSnap: () => {
+				const s = state.get();
+				if (s.heightState === "maximized" && s.widthState === "maximized") {
+					const presetStyle = { ...STYLE_PRESETS[s.preset], ...styleOverrides };
+					container.style.width = presetStyle.width ?? "";
+					container.style.height = presetStyle.height ?? "";
+					clearAxisOverrides();
+					state.update((st) => ({
+						...st,
+						heightState: "normal",
+						widthState: "normal",
+					}));
+					send("heightState", "normal");
+					send("widthState", "normal");
+				}
+			},
 			onEdgeSnap: (edge: SnapEdge) => {
 				// Capture geometry before maximize (resetToPreset reverts to
 				// preset defaults, losing dragged position and resized dimensions)
 				const rect = container.getBoundingClientRect();
-				if (edge === "left" || edge === "right") {
+				if (edge.includes("-")) {
+					// Corner snap — maximize both axes
+					maximizeHeight();
+					maximizeWidth();
+				} else if (edge === "left" || edge === "right") {
 					maximizeHeight();
 					// Preserve horizontal position and width at the snapped edge
 					container.style.left = `${rect.left}px`;

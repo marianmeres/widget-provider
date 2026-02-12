@@ -117,13 +117,19 @@ Deno.test("resolveEdge: no edge returns null", () => {
 	assertEquals(resolveEdge(false, false, false, false), null);
 });
 
-Deno.test("resolveEdge: corner (two edges) returns null", () => {
-	assertEquals(resolveEdge(true, false, true, false), null);
-	assertEquals(resolveEdge(true, false, false, true), null);
-	assertEquals(resolveEdge(false, true, true, false), null);
-	assertEquals(resolveEdge(false, true, false, true), null);
+Deno.test("resolveEdge: corner (two edges) returns corner", () => {
+	assertEquals(resolveEdge(true, false, true, false), "top-left");
+	assertEquals(resolveEdge(true, false, false, true), "bottom-left");
+	assertEquals(resolveEdge(false, true, true, false), "top-right");
+	assertEquals(resolveEdge(false, true, false, true), "bottom-right");
 });
 
-Deno.test("resolveEdge: all edges returns null", () => {
+Deno.test("resolveEdge: opposite edges returns null", () => {
+	assertEquals(resolveEdge(true, true, false, false), null);
+	assertEquals(resolveEdge(false, false, true, true), null);
+});
+
+Deno.test("resolveEdge: three or four edges returns null", () => {
+	assertEquals(resolveEdge(true, true, true, false), null);
 	assertEquals(resolveEdge(true, true, true, true), null);
 });
