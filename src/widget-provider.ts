@@ -1,5 +1,6 @@
 import { createStore } from "@marianmeres/store";
 import { makeDraggable } from "./draggable.ts";
+import { makeResizable } from "./resizable.ts";
 import {
 	ANIMATE_PRESETS,
 	type AnimateConfig,
@@ -15,6 +16,8 @@ import {
 	type MessageHandler,
 	MSG_PREFIX,
 	type PlaceholderOptions,
+	type ResizableHandle,
+	type ResizableOptions,
 	type StylePreset,
 	type Unsubscribe,
 	type WidgetMessage,
@@ -275,7 +278,36 @@ export function provideWidget(
 		}
 	}
 
-	setupDraggable();
+	// resizable (float only)
+	let resizableHandle: ResizableHandle | null = null;
+	const resolveResizeOpts = (): ResizableOptions =>
+		typeof options.resizable === "object" ? options.resizable : {};
+
+	function teardownResizable(): void {
+		if (resizableHandle) {
+			resizableHandle.destroy();
+			resizableHandle = null;
+		}
+	}
+
+	function setupResizable(): void {
+		if (state.get().preset === "float" && options.resizable) {
+			resizableHandle = makeResizable(container, iframe, resolveResizeOpts());
+		}
+	}
+
+	// combined interaction lifecycle helpers
+	function teardownInteractions(): void {
+		teardownDraggable();
+		teardownResizable();
+	}
+
+	function setupInteractions(): void {
+		setupDraggable();
+		setupResizable();
+	}
+
+	setupInteractions();
 
 	// --- Axis dimension control (shared height/width logic) ---
 
@@ -350,7 +382,7 @@ export function provideWidget(
 		if (state.get().preset === "inline") return;
 
 		const cfg = AXIS_CONFIG[axis];
-		teardownDraggable();
+		teardownInteractions();
 		resetToPreset(undefined, axis);
 
 		// Calculate offset from the known preset position
@@ -380,7 +412,7 @@ export function provideWidget(
 		Object.assign(container.style, overrides);
 
 		state.update((s) => ({ ...s, [cfg.stateKey]: "maximized" }));
-		setupDraggable();
+		setupInteractions();
 		send(cfg.stateKey, "maximized");
 	}
 
@@ -389,7 +421,7 @@ export function provideWidget(
 		if (state.get().preset === "inline") return;
 
 		const cfg = AXIS_CONFIG[axis];
-		teardownDraggable();
+		teardownInteractions();
 		resetToPreset(undefined, axis);
 
 		// Save and apply overrides
@@ -400,7 +432,7 @@ export function provideWidget(
 		Object.assign(container.style, overrides);
 
 		state.update((s) => ({ ...s, [cfg.stateKey]: "minimized" }));
-		setupDraggable();
+		setupInteractions();
 		send(cfg.stateKey, "minimized");
 	}
 
@@ -429,7 +461,7 @@ export function provideWidget(
 		show();
 		if (state.get().isSmallScreen) {
 			maximize();
-		} else {
+		} else if (!(container.style.top || container.style.left)) {
 			minimize();
 		}
 	}
@@ -481,7 +513,7 @@ export function provideWidget(
 			dock();
 			return;
 		}
-		teardownDraggable();
+		teardownInteractions();
 		clearAxisOverrides();
 		resetToPreset(preset);
 		state.update((s) => ({
@@ -490,7 +522,7 @@ export function provideWidget(
 			heightState: "normal",
 			widthState: "normal",
 		}));
-		setupDraggable();
+		setupInteractions();
 		send("heightState", "normal");
 		send("widthState", "normal");
 	}
@@ -543,7 +575,7 @@ export function provideWidget(
 			placeholderEl?.remove();
 			placeholderEl = null;
 		}
-		teardownDraggable();
+		teardownInteractions();
 		globalThis.removeEventListener("message", handleMessage);
 		globalThis.removeEventListener("resize", handleResize);
 		pubsub.unsubscribeAll();
@@ -608,7 +640,7 @@ export function provideWidget(
 		const detachedPreset = state.get().isSmallScreen
 			? "fullscreen" as StylePreset
 			: "float" as StylePreset;
-		teardownDraggable();
+		teardownInteractions();
 		clearAxisOverrides();
 		resetToPreset(detachedPreset);
 
@@ -621,7 +653,7 @@ export function provideWidget(
 			widthState: "normal",
 		}));
 
-		setupDraggable();
+		setupInteractions();
 
 		send("detached", true);
 		send("heightState", "normal");
@@ -633,7 +665,7 @@ export function provideWidget(
 		if (s.destroyed || !s.detached) return;
 		if (!originalParent || !placeholderEl) return;
 
-		teardownDraggable();
+		teardownInteractions();
 
 		// Move container back to original parent, replacing placeholder
 		originalParent.insertBefore(container, placeholderEl);
@@ -654,7 +686,7 @@ export function provideWidget(
 			widthState: "normal",
 		}));
 
-		setupDraggable();
+		setupInteractions();
 
 		send("detached", false);
 		send("heightState", "normal");

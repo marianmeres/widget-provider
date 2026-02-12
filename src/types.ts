@@ -51,6 +51,34 @@ export interface DraggableHandle {
 	resetPosition(): void;
 }
 
+/** Configuration for resize behavior in float mode */
+export interface ResizableOptions {
+	/** Size of the resize handle area in pixels. Default: 20 */
+	handleSize?: number;
+	/** CSS overrides for the resize handle element */
+	handleStyle?: Partial<CSSStyleDeclaration>;
+	/** Minimum gap (px) between the widget edge and the viewport edge. Default: 20 */
+	boundaryPadding?: number;
+	/** Minimum width in pixels. Default: 200 */
+	minWidth?: number;
+	/** Minimum height in pixels. Default: 150 */
+	minHeight?: number;
+	/** Maximum width in pixels. Default: viewport width minus padding */
+	maxWidth?: number;
+	/** Maximum height in pixels. Default: viewport height minus padding */
+	maxHeight?: number;
+}
+
+/** Control handle returned by makeResizable, used for cleanup */
+export interface ResizableHandle {
+	/** The resize handle DOM element */
+	readonly handleEl: HTMLElement;
+	/** Remove all event listeners and the handle element */
+	destroy(): void;
+	/** Reset size to the preset default (clears inline width/height) */
+	resetSize(): void;
+}
+
 /** Configuration for the placeholder left behind when a widget is detached */
 export interface PlaceholderOptions {
 	/** CSS overrides for the placeholder div */
@@ -130,6 +158,14 @@ export interface WidgetProviderOptions {
 	 * - object → enable with custom options
 	 */
 	draggable?: boolean | DraggableOptions;
+
+	/**
+	 * Enable free-resize for the float preset.
+	 * Only effective when stylePreset is "float".
+	 * - `true` → enable with defaults
+	 * - object → enable with custom options
+	 */
+	resizable?: boolean | ResizableOptions;
 
 	/**
 	 * Configuration for the placeholder element left behind when detach() is called.

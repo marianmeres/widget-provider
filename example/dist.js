@@ -264,6 +264,132 @@ function makeDraggable(container, iframe, options = {}) {
         resetPosition
     };
 }
+const iconResize = `
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <line x1="21" y1="11" x2="11" y2="21" />
+  <line x1="21" y1="15" x2="15" y2="21" />
+  <line x1="21" y1="19" x2="19" y2="21" />
+</svg>
+`;
+function makeResizable(container, iframe, options = {}) {
+    const handleSize = options.handleSize ?? 20;
+    const boundaryPadding = options.boundaryPadding ?? 20;
+    const minWidth = options.minWidth ?? 200;
+    const minHeight = options.minHeight ?? 150;
+    const handle = document.createElement("div");
+    Object.assign(handle.style, {
+        position: "absolute",
+        bottom: "0",
+        right: "0",
+        zIndex: "1",
+        width: `${handleSize}px`,
+        height: `${handleSize}px`,
+        cursor: "nwse-resize",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        userSelect: "none",
+        touchAction: "none",
+        opacity: "0.4",
+        color: "inherit"
+    });
+    if (options.handleStyle) {
+        Object.assign(handle.style, options.handleStyle);
+    }
+    handle.innerHTML = iconResize;
+    const svg = handle.querySelector("svg");
+    if (svg) {
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+        svg.style.pointerEvents = "none";
+    }
+    container.style.position ||= "relative";
+    container.appendChild(handle);
+    let isResizing = false;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+    let savedTransition = "";
+    function onPointerDown(e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        isResizing = true;
+        savedTransition = container.style.transition;
+        container.style.transition = "none";
+        const rect = container.getBoundingClientRect();
+        container.style.top = `${rect.top}px`;
+        container.style.left = `${rect.left}px`;
+        container.style.bottom = "auto";
+        container.style.right = "auto";
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = rect.width;
+        startHeight = rect.height;
+        iframe.style.pointerEvents = "none";
+        handle.addEventListener("pointermove", onPointerMove);
+        handle.addEventListener("pointerup", onPointerUp);
+        handle.addEventListener("pointercancel", onPointerUp);
+    }
+    function onPointerMove(e) {
+        if (!isResizing) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const maxW = options.maxWidth ?? globalThis.innerWidth - boundaryPadding;
+        const maxH = options.maxHeight ?? globalThis.innerHeight - boundaryPadding;
+        let newWidth = startWidth + dx;
+        let newHeight = startHeight + dy;
+        newWidth = Math.max(minWidth, Math.min(newWidth, maxW));
+        newHeight = Math.max(minHeight, Math.min(newHeight, maxH));
+        const containerLeft = container.getBoundingClientRect().left;
+        const containerTop = container.getBoundingClientRect().top;
+        newWidth = Math.min(newWidth, globalThis.innerWidth - containerLeft - boundaryPadding);
+        newHeight = Math.min(newHeight, globalThis.innerHeight - containerTop - boundaryPadding);
+        container.style.width = `${newWidth}px`;
+        container.style.height = `${newHeight}px`;
+    }
+    function onPointerUp(e) {
+        if (!isResizing) return;
+        isResizing = false;
+        iframe.style.pointerEvents = "";
+        container.style.transition = savedTransition;
+        handle.releasePointerCapture(e.pointerId);
+        handle.removeEventListener("pointermove", onPointerMove);
+        handle.removeEventListener("pointerup", onPointerUp);
+        handle.removeEventListener("pointercancel", onPointerUp);
+    }
+    handle.addEventListener("pointerdown", onPointerDown);
+    function resetSize() {
+        container.style.width = "";
+        container.style.height = "";
+    }
+    function destroy() {
+        handle.removeEventListener("pointerdown", onPointerDown);
+        if (isResizing) {
+            iframe.style.pointerEvents = "";
+            container.style.transition = savedTransition;
+        }
+        handle.remove();
+    }
+    return {
+        get handleEl () {
+            return handle;
+        },
+        destroy,
+        resetSize
+    };
+}
 const ANIMATE_PRESETS = {
     "fade-scale": {
         transition: "opacity 200ms ease, transform 200ms ease",
@@ -831,7 +957,28 @@ function provideWidget(options) {
             draggableHandle = makeDraggable(container, iframe, resolveDragOpts());
         }
     }
-    setupDraggable();
+    let resizableHandle = null;
+    const resolveResizeOpts = ()=>typeof options.resizable === "object" ? options.resizable : {};
+    function teardownResizable() {
+        if (resizableHandle) {
+            resizableHandle.destroy();
+            resizableHandle = null;
+        }
+    }
+    function setupResizable() {
+        if (state.get().preset === "float" && options.resizable) {
+            resizableHandle = makeResizable(container, iframe, resolveResizeOpts());
+        }
+    }
+    function teardownInteractions() {
+        teardownDraggable();
+        teardownResizable();
+    }
+    function setupInteractions() {
+        setupDraggable();
+        setupResizable();
+    }
+    setupInteractions();
     let heightOverrides = null;
     let widthOverrides = null;
     const AXIS_CONFIG = {
@@ -889,7 +1036,7 @@ function provideWidget(options) {
         if (state.get().destroyed) return;
         if (state.get().preset === "inline") return;
         const cfg = AXIS_CONFIG[axis];
-        teardownDraggable();
+        teardownInteractions();
         resetToPreset(undefined, axis);
         let o;
         if (offset !== undefined) {
@@ -916,14 +1063,14 @@ function provideWidget(options) {
                 ...s,
                 [cfg.stateKey]: "maximized"
             }));
-        setupDraggable();
+        setupInteractions();
         send(cfg.stateKey, "maximized");
     }
     function minimizeAxis(axis, size) {
         if (state.get().destroyed) return;
         if (state.get().preset === "inline") return;
         const cfg = AXIS_CONFIG[axis];
-        teardownDraggable();
+        teardownInteractions();
         resetToPreset(undefined, axis);
         const overrides = {
             [cfg.sizeProp]: `${size ?? 48}px`
@@ -934,7 +1081,7 @@ function provideWidget(options) {
                 ...s,
                 [cfg.stateKey]: "minimized"
             }));
-        setupDraggable();
+        setupInteractions();
         send(cfg.stateKey, "minimized");
     }
     const triggerOpts = options.trigger;
@@ -957,7 +1104,7 @@ function provideWidget(options) {
         show();
         if (state.get().isSmallScreen) {
             maximize();
-        } else {
+        } else if (!(container.style.top || container.style.left)) {
             minimize();
         }
     }
@@ -1010,7 +1157,7 @@ function provideWidget(options) {
             dock();
             return;
         }
-        teardownDraggable();
+        teardownInteractions();
         clearAxisOverrides();
         resetToPreset(preset);
         state.update((s)=>({
@@ -1019,7 +1166,7 @@ function provideWidget(options) {
                 heightState: "normal",
                 widthState: "normal"
             }));
-        setupDraggable();
+        setupInteractions();
         send("heightState", "normal");
         send("widthState", "normal");
     }
@@ -1061,7 +1208,7 @@ function provideWidget(options) {
             placeholderEl?.remove();
             placeholderEl = null;
         }
-        teardownDraggable();
+        teardownInteractions();
         globalThis.removeEventListener("message", handleMessage);
         globalThis.removeEventListener("resize", handleResize);
         pubsub.unsubscribeAll();
@@ -1107,7 +1254,7 @@ function provideWidget(options) {
         originalParent.insertBefore(placeholderEl, container);
         document.body.appendChild(container);
         const detachedPreset = state.get().isSmallScreen ? "fullscreen" : "float";
-        teardownDraggable();
+        teardownInteractions();
         clearAxisOverrides();
         resetToPreset(detachedPreset);
         state.update((st)=>({
@@ -1117,7 +1264,7 @@ function provideWidget(options) {
                 heightState: "normal",
                 widthState: "normal"
             }));
-        setupDraggable();
+        setupInteractions();
         send("detached", true);
         send("heightState", "normal");
         send("widthState", "normal");
@@ -1126,7 +1273,7 @@ function provideWidget(options) {
         const s = state.get();
         if (s.destroyed || !s.detached) return;
         if (!originalParent || !placeholderEl) return;
-        teardownDraggable();
+        teardownInteractions();
         originalParent.insertBefore(container, placeholderEl);
         placeholderEl.remove();
         placeholderEl = null;
@@ -1140,7 +1287,7 @@ function provideWidget(options) {
                 heightState: "normal",
                 widthState: "normal"
             }));
-        setupDraggable();
+        setupInteractions();
         send("detached", false);
         send("heightState", "normal");
         send("widthState", "normal");
@@ -1196,5 +1343,6 @@ function provideWidget(options) {
 }
 export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { makeDraggable as makeDraggable };
+export { makeResizable as makeResizable };
 export { MSG_PREFIX as MSG_PREFIX };
 export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, STYLE_PRESETS as STYLE_PRESETS };

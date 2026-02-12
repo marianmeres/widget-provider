@@ -6,6 +6,7 @@ export {
 } from "./widget-provider.ts";
 
 export { makeDraggable } from "./draggable.ts";
+export { makeResizable } from "./resizable.ts";
 
 export type {
 	AnimatePreset,
@@ -15,6 +16,8 @@ export type {
 	HeightState,
 	MessageHandler,
 	PlaceholderOptions,
+	ResizableHandle,
+	ResizableOptions,
 	StyleOverrides,
 	StylePreset,
 	Unsubscribe,
