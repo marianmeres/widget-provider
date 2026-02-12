@@ -604,15 +604,18 @@ export function provideWidget(
 		// Move the container to document.body (preserves iframe state!)
 		document.body.appendChild(container);
 
-		// Switch visual style to float
+		// Switch visual style: fullscreen on small screens, float otherwise
+		const detachedPreset = state.get().isSmallScreen
+			? "fullscreen" as StylePreset
+			: "float" as StylePreset;
 		teardownDraggable();
 		clearAxisOverrides();
-		resetToPreset("float");
+		resetToPreset(detachedPreset);
 
 		// Update state
 		state.update((st) => ({
 			...st,
-			preset: "float",
+			preset: detachedPreset,
 			detached: true,
 			heightState: "normal",
 			widthState: "normal",

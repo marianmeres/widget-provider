@@ -1106,12 +1106,13 @@ function provideWidget(options) {
         }
         originalParent.insertBefore(placeholderEl, container);
         document.body.appendChild(container);
+        const detachedPreset = state.get().isSmallScreen ? "fullscreen" : "float";
         teardownDraggable();
         clearAxisOverrides();
-        resetToPreset("float");
+        resetToPreset(detachedPreset);
         state.update((st)=>({
                 ...st,
-                preset: "float",
+                preset: detachedPreset,
                 detached: true,
                 heightState: "normal",
                 widthState: "normal"
