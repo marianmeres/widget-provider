@@ -685,20 +685,24 @@ function resolveAnimateConfig(opt) {
     } : base;
 }
 function provideWidget(options) {
-    const { widgetUrl, parentContainer, stylePreset = "inline", styleOverrides = {}, allowedOrigin, visible = true, sandbox = "allow-scripts allow-same-origin", iframeAttrs = {} } = options;
+    const { widgetUrl, parentContainer, stylePreset = "inline", styleOverrides = {}, allowedOrigin, visible = true, sandbox = "allow-scripts allow-same-origin", iframeAttrs = {}, smallScreenBreakpoint = 640 } = options;
     if (!widgetUrl) {
         throw new Error("widgetUrl is required");
     }
     const origins = resolveAllowedOrigins(allowedOrigin, widgetUrl);
     const initialPreset = stylePreset;
     const anim = resolveAnimateConfig(options.animate);
+    function checkSmallScreen() {
+        return smallScreenBreakpoint > 0 && globalThis.innerWidth < smallScreenBreakpoint;
+    }
     const state = createStore({
         visible,
         ready: false,
         destroyed: false,
         preset: stylePreset,
         heightState: "normal",
-        detached: false
+        detached: false,
+        isSmallScreen: checkSmallScreen()
     });
     const container = document.createElement("div");
     const iframe = document.createElement("iframe");
@@ -742,6 +746,10 @@ function provideWidget(options) {
                     }));
                 send("heightState", state.get().heightState);
                 send("detached", state.get().detached);
+                send("isSmallScreen", state.get().isSmallScreen);
+                break;
+            case "open":
+                open();
                 break;
             case "maximize":
                 maximize();
@@ -785,6 +793,17 @@ function provideWidget(options) {
         pubsub.publish(data.type, data.payload);
     }
     globalThis.addEventListener("message", handleMessage);
+    function handleResize() {
+        const small = checkSmallScreen();
+        if (small !== state.get().isSmallScreen) {
+            state.update((s)=>({
+                    ...s,
+                    isSmallScreen: small
+                }));
+            send("isSmallScreen", small);
+        }
+    }
+    globalThis.addEventListener("resize", handleResize);
     const appendTarget = parentContainer || document.body;
     appendTarget.appendChild(container);
     let placeholderEl = null;
@@ -818,8 +837,16 @@ function provideWidget(options) {
         if (visible) {
             triggerEl.style.display = "none";
         }
-        triggerEl.addEventListener("click", ()=>show());
+        triggerEl.addEventListener("click", ()=>open());
         appendTarget.appendChild(triggerEl);
+    }
+    function open() {
+        show();
+        if (state.get().isSmallScreen) {
+            maximize();
+        } else {
+            minimize();
+        }
     }
     function show() {
         if (state.get().destroyed) return;
@@ -967,6 +994,7 @@ function provideWidget(options) {
         }
         teardownDraggable();
         globalThis.removeEventListener("message", handleMessage);
+        globalThis.removeEventListener("resize", handleResize);
         pubsub.unsubscribeAll();
         iframe.src = "about:blank";
         container.remove();
@@ -977,7 +1005,8 @@ function provideWidget(options) {
                 destroyed: true,
                 preset: s.preset,
                 heightState: s.heightState,
-                detached: false
+                detached: false,
+                isSmallScreen: s.isSmallScreen
             }));
     }
     function detach() {
@@ -1073,6 +1102,7 @@ function provideWidget(options) {
         return pubsub.subscribe(prefixedType, handler);
     }
     return {
+        open,
         show,
         hide,
         toggle,

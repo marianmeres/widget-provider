@@ -132,6 +132,12 @@ export interface WidgetProviderOptions {
 	 * - object → enable with custom options
 	 */
 	placeholder?: boolean | PlaceholderOptions;
+
+	/**
+	 * Viewport width threshold (px) below which `open()` auto-maximizes.
+	 * Default: 640. Set to 0 to disable.
+	 */
+	smallScreenBreakpoint?: number;
 }
 
 /** Reactive state tracked in the store */
@@ -143,10 +149,14 @@ export interface WidgetState {
 	heightState: HeightState;
 	/** Whether the widget has been detached from its parentContainer */
 	detached: boolean;
+	/** Whether the viewport width is below the configured smallScreenBreakpoint */
+	isSmallScreen: boolean;
 }
 
 /** Control API returned by {@linkcode provideWidget} */
 export interface WidgetProviderApi {
+	/** Show the widget, auto-maximizing if viewport is below smallScreenBreakpoint */
+	open(): void;
 	/** Show the widget container */
 	show(): void;
 	/** Hide the widget container */

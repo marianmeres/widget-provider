@@ -89,6 +89,7 @@ export function provideWidget(
 		visible = true,
 		sandbox = "allow-scripts allow-same-origin",
 		iframeAttrs = {},
+		smallScreenBreakpoint = 640,
 	} = options;
 
 	if (!widgetUrl) {
@@ -99,6 +100,11 @@ export function provideWidget(
 	const initialPreset = stylePreset;
 	const anim = resolveAnimateConfig(options.animate);
 
+	function checkSmallScreen(): boolean {
+		return smallScreenBreakpoint > 0 &&
+			globalThis.innerWidth < smallScreenBreakpoint;
+	}
+
 	// reactive state
 	const state = createStore<WidgetState>({
 		visible,
@@ -107,6 +113,7 @@ export function provideWidget(
 		preset: stylePreset,
 		heightState: "normal",
 		detached: false,
+		isSmallScreen: checkSmallScreen(),
 	});
 
 	// DOM
@@ -160,6 +167,10 @@ export function provideWidget(
 				state.update((s) => ({ ...s, ready: true }));
 				send("heightState", state.get().heightState);
 				send("detached", state.get().detached);
+				send("isSmallScreen", state.get().isSmallScreen);
+				break;
+			case "open":
+				open();
 				break;
 			case "maximize":
 				maximize();
@@ -213,6 +224,16 @@ export function provideWidget(
 
 	globalThis.addEventListener("message", handleMessage);
 
+	// small screen tracking
+	function handleResize(): void {
+		const small = checkSmallScreen();
+		if (small !== state.get().isSmallScreen) {
+			state.update((s) => ({ ...s, isSmallScreen: small }));
+			send("isSmallScreen", small);
+		}
+	}
+	globalThis.addEventListener("resize", handleResize);
+
 	// append to DOM
 	const appendTarget = parentContainer || document.body;
 	appendTarget.appendChild(container);
@@ -260,11 +281,20 @@ export function provideWidget(
 		if (visible) {
 			triggerEl.style.display = "none";
 		}
-		triggerEl.addEventListener("click", () => show());
+		triggerEl.addEventListener("click", () => open());
 		appendTarget.appendChild(triggerEl);
 	}
 
 	// API
+	function open(): void {
+		show();
+		if (state.get().isSmallScreen) {
+			maximize();
+		} else {
+			minimize();
+		}
+	}
+
 	function show(): void {
 		if (state.get().destroyed) return;
 		if (anim) {
@@ -415,6 +445,7 @@ export function provideWidget(
 		}
 		teardownDraggable();
 		globalThis.removeEventListener("message", handleMessage);
+		globalThis.removeEventListener("resize", handleResize);
 		pubsub.unsubscribeAll();
 		iframe.src = "about:blank";
 		container.remove();
@@ -426,6 +457,7 @@ export function provideWidget(
 			preset: s.preset,
 			heightState: s.heightState,
 			detached: false,
+			isSmallScreen: s.isSmallScreen,
 		}));
 	}
 
@@ -563,6 +595,7 @@ export function provideWidget(
 	}
 
 	return {
+		open,
 		show,
 		hide,
 		toggle,
