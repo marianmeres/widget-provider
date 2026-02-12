@@ -1,3 +1,4 @@
+/** SVG markup for a 9-dot grip icon used as the drag handle indicator */
 export const iconGrip = `
 <svg
   xmlns="http://www.w3.org/2000/svg"

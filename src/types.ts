@@ -33,8 +33,14 @@ export type Unsubscribe = () => void;
 
 /** Which viewport edge the widget was snapped to */
 export type SnapEdge =
-	| "left" | "right" | "top" | "bottom"
-	| "top-left" | "top-right" | "bottom-left" | "bottom-right";
+	| "left"
+	| "right"
+	| "top"
+	| "bottom"
+	| "top-left"
+	| "top-right"
+	| "bottom-left"
+	| "bottom-right";
 
 /** Configuration for edge-snap behavior (drag-to-edge maximize) */
 export interface EdgeSnapOptions {

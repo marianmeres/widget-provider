@@ -1,3 +1,11 @@
+/**
+ * @module widget-provider
+ *
+ * Iframe-based widget provider with positioning presets, bidirectional
+ * postMessage communication, show/hide animations, drag-and-drop,
+ * resize, detach/dock workflow, and reactive state.
+ */
+
 export {
 	isOriginAllowed,
 	provideWidget,

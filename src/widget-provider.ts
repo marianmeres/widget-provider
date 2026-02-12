@@ -276,24 +276,30 @@ export function provideWidget(
 					return s.heightState === "maximized" && s.widthState === "maximized";
 				},
 				createGhost: () => {
-					const presetStyle = { ...STYLE_PRESETS[state.get().preset], ...styleOverrides };
+					const presetStyle = {
+						...STYLE_PRESETS[state.get().preset],
+						...styleOverrides,
+					};
 					const rect = container.getBoundingClientRect();
 					const ghost = document.createElement("div");
-					Object.assign(ghost.style, {
-						position: "fixed",
-						boxSizing: "border-box",
-						border: "2px dashed rgba(128, 128, 128, 0.5)",
-						borderRadius: "8px",
-						background: "rgba(128, 128, 128, 0.1)",
-						zIndex: "10001",
-						pointerEvents: "none",
-						transition: "opacity 150ms ease",
-						opacity: "0",
-						top: `${rect.top}px`,
-						left: `${rect.left}px`,
-						width: presetStyle.width ?? "380px",
-						height: presetStyle.height ?? "520px",
-					} satisfies Partial<CSSStyleDeclaration>);
+					Object.assign(
+						ghost.style,
+						{
+							position: "fixed",
+							boxSizing: "border-box",
+							border: "2px dashed rgba(128, 128, 128, 0.5)",
+							borderRadius: "8px",
+							background: "rgba(128, 128, 128, 0.1)",
+							zIndex: "10001",
+							pointerEvents: "none",
+							transition: "opacity 150ms ease",
+							opacity: "0",
+							top: `${rect.top}px`,
+							left: `${rect.left}px`,
+							width: presetStyle.width ?? "380px",
+							height: presetStyle.height ?? "520px",
+						} satisfies Partial<CSSStyleDeclaration>,
+					);
 					return ghost;
 				},
 			},

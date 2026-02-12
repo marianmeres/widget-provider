@@ -46,6 +46,40 @@ and preset is `"float"`. Can also be used standalone.
 
 ---
 
+### `makeResizable(container, iframe, options?)`
+
+Make a fixed-position container resizable via a corner handle at the bottom-right.
+Uses the Pointer Events API for unified mouse + touch support.
+
+Typically used internally by `provideWidget()` when `resizable` option is set
+and preset is `"float"`. Can also be used standalone.
+
+**Parameters:**
+
+- `container` (`HTMLElement`) — The fixed-position container element
+- `iframe` (`HTMLIFrameElement`) — The iframe inside the container
+- `options` (`ResizableOptions`, optional) — Resize behavior configuration
+
+**Returns:** `ResizableHandle`
+
+---
+
+### `resolveEdge(atLeft, atRight, atTop, atBottom)`
+
+Pure edge-resolution logic: given which viewport edges are touched,
+return the single active edge, a corner, or `null` if none or ambiguous.
+
+**Parameters:**
+
+- `atLeft` (`boolean`) — Whether the element is touching the left edge
+- `atRight` (`boolean`) — Whether the element is touching the right edge
+- `atTop` (`boolean`) — Whether the element is touching the top edge
+- `atBottom` (`boolean`) — Whether the element is touching the bottom edge
+
+**Returns:** `SnapEdge | null`
+
+---
+
 ### `resolveAllowedOrigins(explicit, widgetUrl)`
 
 Resolve the list of allowed origins for postMessage validation.
@@ -122,8 +156,12 @@ interface WidgetProviderOptions {
 	trigger?: boolean | { content?: string; style?: Partial<CSSStyleDeclaration> };
 	/** Enable drag-and-drop for float preset: true | DraggableOptions */
 	draggable?: boolean | DraggableOptions;
+	/** Enable free-resize for float preset: true | ResizableOptions */
+	resizable?: boolean | ResizableOptions;
 	/** Placeholder config for detach(). Only relevant for inline preset with parentContainer */
 	placeholder?: boolean | PlaceholderOptions;
+	/** Viewport width threshold (px) below which open() auto-maximizes. Default: 640. Set to 0 to disable */
+	smallScreenBreakpoint?: number;
 }
 ```
 
@@ -135,6 +173,7 @@ The object returned by `provideWidget()`.
 
 | Method / Property           | Signature                                                         | Description                                                                 |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `open()`                    | `() => void`                                                      | Show and auto-maximize on small screens, or minimize on first open          |
 | `show()`                    | `() => void`                                                      | Show the widget container                                                   |
 | `hide()`                    | `() => void`                                                      | Hide the widget container                                                   |
 | `toggle()`                  | `() => void`                                                      | Toggle visibility                                                           |
@@ -174,6 +213,8 @@ interface WidgetState {
 	widthState: WidthState;
 	/** Whether the widget has been detached from its parentContainer */
 	detached: boolean;
+	/** Whether the viewport width is below the configured smallScreenBreakpoint */
+	isSmallScreen: boolean;
 }
 ```
 
@@ -213,6 +254,17 @@ interface DraggableOptions {
 	handleStyle?: Partial<CSSStyleDeclaration>;
 	/** Minimum gap (px) between widget edge and viewport edge. Default: 20 */
 	boundaryPadding?: number;
+	/** Enable edge-snap (ghost preview + maximize on release). true | EdgeSnapOptions | false */
+	edgeSnap?: boolean | EdgeSnapOptions;
+	/** Called when pointer is released while the edge-snap ghost is showing */
+	onEdgeSnap?: (edge: SnapEdge) => void;
+	/** Reset-snap: shows a ghost and resets dimensions when dragging away from edges */
+	resetSnap?: {
+		isActive: () => boolean;
+		createGhost: () => HTMLElement;
+	};
+	/** Called when pointer is released while the reset-snap ghost is showing */
+	onResetSnap?: () => void;
 }
 ```
 
@@ -228,6 +280,75 @@ interface DraggableHandle {
 	destroy(): void;
 	/** Reset position to the preset default (clears top/left, restores bottom/right) */
 	resetPosition(): void;
+}
+```
+
+---
+
+### `EdgeSnapOptions`
+
+```typescript
+interface EdgeSnapOptions {
+	/** Dwell time (ms) at edge before ghost appears. Default: 500 */
+	dwellMs?: number;
+	/** CSS overrides for the ghost preview element */
+	ghostStyle?: Partial<CSSStyleDeclaration>;
+}
+```
+
+---
+
+### `SnapEdge`
+
+```typescript
+type SnapEdge =
+	| "left"
+	| "right"
+	| "top"
+	| "bottom"
+	| "top-left"
+	| "top-right"
+	| "bottom-left"
+	| "bottom-right";
+```
+
+---
+
+### `ResizableOptions`
+
+```typescript
+interface ResizableOptions {
+	/** Size of the resize handle area in pixels. Default: 20 */
+	handleSize?: number;
+	/** CSS overrides for the resize handle element */
+	handleStyle?: Partial<CSSStyleDeclaration>;
+	/** Minimum gap (px) between widget edge and viewport edge. Default: 20 */
+	boundaryPadding?: number;
+	/** Minimum width in pixels. Default: 200 */
+	minWidth?: number;
+	/** Minimum height in pixels. Default: 150 */
+	minHeight?: number;
+	/** Maximum width in pixels. Default: viewport width minus padding */
+	maxWidth?: number;
+	/** Maximum height in pixels. Default: viewport height minus padding */
+	maxHeight?: number;
+	/** Called when a manual resize interaction ends */
+	onResizeEnd?: () => void;
+}
+```
+
+---
+
+### `ResizableHandle`
+
+```typescript
+interface ResizableHandle {
+	/** The resize handle DOM element */
+	readonly handleEl: HTMLElement;
+	/** Remove all event listeners and the handle element */
+	destroy(): void;
+	/** Reset size to the preset default (clears inline width/height) */
+	resetSize(): void;
 }
 ```
 

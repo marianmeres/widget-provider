@@ -11,6 +11,7 @@ Host Page (provideWidget caller)
   │
   ├── Container <div>        ← styled by preset (float/fullscreen/inline)
   │     ├── Drag Handle      ← optional, float preset only (via makeDraggable)
+  │     ├── Resize Handle    ← optional, float preset only (via makeResizable)
   │     └── <iframe>         ← loads widgetUrl, sandboxed
   │
   ├── Trigger <button>       ← optional, auto-toggles visibility
@@ -18,7 +19,8 @@ Host Page (provideWidget caller)
   ├── Placeholder <div>      ← replaces container when detached (inline only)
   │
   └── State Store            ← @marianmeres/store
-        │                       (visible, ready, destroyed, preset, heightState, detached)
+        │                       (visible, ready, destroyed, preset, heightState,
+        │                        widthState, detached, isSmallScreen)
         └── postMessage listener ← origin-validated, prefix-filtered
 ```
 
@@ -29,8 +31,9 @@ Host → iframe:  widget.send(type, payload) → postMessage with MSG_PREFIX
 iframe → Host:  postMessage with MSG_PREFIX → handleMessage → built-in handlers + onMessage callbacks
 
 Built-in control messages (from iframe):
-  ready, maximize, minimize, maximizeHeight, minimizeHeight, resetHeight,
-  hide, close, setPreset, detach, dock, nativeFullscreen, exitNativeFullscreen
+  ready, open, maximize, minimize, maximizeHeight, minimizeHeight,
+  maximizeWidth, minimizeWidth, reset, hide, close, setPreset,
+  detach, dock, nativeFullscreen, exitNativeFullscreen
 ```
 
 ## Preset-specific Behavior
@@ -38,7 +41,9 @@ Built-in control messages (from iframe):
 | Feature        | inline | float | fullscreen |
 | -------------- | ------ | ----- | ---------- |
 | Height control | no-op  | yes   | yes        |
+| Width control  | no-op  | yes   | yes        |
 | Draggable      | no     | yes   | no         |
+| Resizable      | no     | yes   | no         |
 | Detach/dock    | yes    | no    | no         |
 | Trigger button | yes    | yes   | yes        |
 | Animations     | yes    | yes   | yes        |
@@ -51,6 +56,9 @@ Built-in control messages (from iframe):
 | `src/types.ts`           | All types, interfaces, `MSG_PREFIX` constant                          |
 | `src/style-presets.ts`   | CSS preset objects, animation configs, apply functions                |
 | `src/draggable.ts`       | `makeDraggable()` — pointer-event based drag for float containers     |
+| `src/resizable.ts`       | `makeResizable()` — pointer-event based resize for float containers   |
+| `src/iconGrip.ts`        | SVG icon for drag handle                                              |
+| `src/iconResize.ts`      | SVG icon for resize handle                                            |
 | `src/mod.ts`             | Public barrel export                                                  |
 
 ## External Dependencies

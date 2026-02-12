@@ -6,7 +6,7 @@
 
 Embed an iframe-based widget into a host page with built-in positioning presets,
 bidirectional postMessage communication, show/hide animations, drag-and-drop,
-detach/dock workflow, and reactive state.
+resize, detach/dock workflow, and reactive state.
 
 ## Installation
 
@@ -31,17 +31,21 @@ const widget = provideWidget({
 	animate: true, // fade-scale animation
 	trigger: true, // show floating trigger button when hidden
 	draggable: true, // drag handle for float preset
+	resizable: true, // resize handle for float preset
 });
 
 // Control visibility
+widget.open(); // show + auto-maximize on small screens
 widget.show();
 widget.hide();
 widget.toggle();
 
-// Height control (float/fullscreen only — no-op when inline)
+// Dimension control (float/fullscreen only — no-op when inline)
 widget.maximizeHeight();
 widget.minimizeHeight();
-widget.resetHeight();
+widget.maximizeWidth();
+widget.minimizeWidth();
+widget.reset();
 
 // Send messages to the iframe
 widget.send("greet", { name: "World" });
@@ -89,9 +93,10 @@ widget.dock(); // returns to sidebar, restores inline style
 ### Message Protocol
 
 Messages between the host and iframe are namespaced with `@@__widget_provider__@@`
-prefix. The iframe can send built-in control messages: `ready`, `maximize`, `minimize`,
-`maximizeHeight`, `minimizeHeight`, `resetHeight`, `hide`, `close`, `setPreset`,
-`detach`, `dock`, `nativeFullscreen`, `exitNativeFullscreen`.
+prefix. The iframe can send built-in control messages: `ready`, `open`, `maximize`,
+`minimize`, `maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`,
+`reset`, `hide`, `close`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
+`exitNativeFullscreen`.
 
 ## API
 

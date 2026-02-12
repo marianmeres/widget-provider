@@ -67,6 +67,7 @@ const PRESET_INLINE: CSSProps = {
 	height: "100%",
 };
 
+/** Default CSS styles for the floating trigger button (fixed, circular, blue) */
 export const TRIGGER_BASE: CSSProps = {
 	position: "fixed",
 	bottom: "20px",
@@ -109,6 +110,11 @@ export const PLACEHOLDER_BASE: CSSProps = {
 	fontFamily: "system-ui, sans-serif",
 };
 
+/**
+ * Apply a style preset (and optional overrides) to the widget container element.
+ *
+ * @throws {Error} If the preset name is not recognized.
+ */
 export function applyPreset(
 	container: HTMLElement,
 	preset: StylePreset,
@@ -121,6 +127,7 @@ export function applyPreset(
 	Object.assign(container.style, base, overrides);
 }
 
+/** Apply the base CSS styles ({@linkcode IFRAME_BASE}) to a widget iframe element. */
 export function applyIframeBaseStyles(iframe: HTMLIFrameElement): void {
 	Object.assign(iframe.style, IFRAME_BASE);
 }

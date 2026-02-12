@@ -6,6 +6,8 @@
 - Style/CSS logic → `src/style-presets.ts`
 - Core implementation → `src/widget-provider.ts`
 - Drag-and-drop → `src/draggable.ts`
+- Resize → `src/resizable.ts`
+- SVG icons → `src/iconGrip.ts`, `src/iconResize.ts`
 - Public exports → `src/mod.ts` (barrel)
 
 ## Naming
@@ -64,9 +66,10 @@ function someAction(): void {
 
 Current guards:
 
-- **Height actions** (`maximizeHeight`, `minimizeHeight`, `resetHeight`) → no-op when `preset === "inline"`
+- **Dimension actions** (`maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`, `reset`) → no-op when `preset === "inline"`
 - **Detach** → no-op when `preset !== "inline"` or no `parentContainer`
 - **Draggable** → only set up when `preset === "float"`
+- **Resizable** → only set up when `preset === "float"`
 
 ## Anti-Patterns
 
@@ -76,7 +79,7 @@ Current guards:
 
 ## Testing
 
-- Pure utility functions (`resolveAllowedOrigins`, `isOriginAllowed`) are tested directly
+- Pure utility functions (`resolveAllowedOrigins`, `isOriginAllowed`, `resolveEdge`) are tested directly
 - DOM-dependent `provideWidget()` requires browser environment (not tested in Deno unit tests)
 - Run: `deno test`
 
