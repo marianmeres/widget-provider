@@ -76,8 +76,8 @@ export function makeDraggable(
 			justifyContent: "center",
 			userSelect: "none",
 			touchAction: "none",
-			opacity: "0.4",
-			color: "inherit",
+			opacity: "0.6",
+			color: "#808080",
 		} satisfies Partial<CSSStyleDeclaration>,
 	);
 
@@ -92,6 +92,9 @@ export function makeDraggable(
 		svg.style.width = "100%";
 		svg.style.height = "100%";
 		svg.style.pointerEvents = "none";
+		// dual drop-shadow ensures visibility on both dark and light backgrounds
+		svg.style.filter =
+			"drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 1px rgba(0,0,0,0.9))";
 	}
 
 	// insert handle as an overlay (no layout impact on iframe)
