@@ -450,7 +450,7 @@ export function provideWidget(
 	): void {
 		const preset = presetOverride ?? state.get().preset;
 		container.style.cssText = "";
-		applyPreset(container, preset, styleOverrides);
+		applyPreset(container, preset, preset === initialPreset ? styleOverrides : {});
 		if (anim) {
 			container.style.transition = anim.transition;
 		}
