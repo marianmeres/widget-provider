@@ -51,35 +51,32 @@ export function makeDraggable(
 	const boundaryPadding = options.boundaryPadding ?? DEFAULT_BOUNDARY_PADDING;
 
 	// --- edge snap options ---
-	const edgeSnapEnabled = options.edgeSnap !== false &&
+	const edgeSnapEnabled =
+		options.edgeSnap !== false &&
 		(!!options.edgeSnap || !!options.onEdgeSnap);
-	const edgeSnapOpts: EdgeSnapOptions = typeof options.edgeSnap === "object"
-		? options.edgeSnap
-		: {};
+	const edgeSnapOpts: EdgeSnapOptions =
+		typeof options.edgeSnap === "object" ? options.edgeSnap : {};
 	const dwellMs = edgeSnapOpts.dwellMs ?? DEFAULT_DWELL_MS;
 	const onEdgeSnap = options.onEdgeSnap;
 
 	// --- handle element (floating grip in top-left corner) ---
 	const handle = document.createElement("div");
-	Object.assign(
-		handle.style,
-		{
-			position: "absolute",
-			top: "0",
-			left: "0",
-			zIndex: "1",
-			width: `${handleHeight}px`,
-			height: `${handleHeight}px`,
-			cursor: "grab",
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "center",
-			userSelect: "none",
-			touchAction: "none",
-			opacity: "0.6",
-			color: "#808080",
-		} satisfies Partial<CSSStyleDeclaration>,
-	);
+	Object.assign(handle.style, {
+		position: "absolute",
+		top: "4px",
+		left: "4px",
+		zIndex: "1",
+		width: `${handleHeight}px`,
+		height: `${handleHeight}px`,
+		cursor: "grab",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		userSelect: "none",
+		touchAction: "none",
+		opacity: "0.6",
+		color: "#808080",
+	} satisfies Partial<CSSStyleDeclaration>);
 
 	if (options.handleStyle) {
 		Object.assign(handle.style, options.handleStyle);
@@ -92,9 +89,6 @@ export function makeDraggable(
 		svg.style.width = "100%";
 		svg.style.height = "100%";
 		svg.style.pointerEvents = "none";
-		// dual drop-shadow ensures visibility on both dark and light backgrounds
-		svg.style.filter =
-			"drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 1px rgba(0,0,0,0.9))";
 	}
 
 	// insert handle as an overlay (no layout impact on iframe)
@@ -136,20 +130,17 @@ export function makeDraggable(
 		const vw = globalThis.innerWidth;
 		const vh = globalThis.innerHeight;
 
-		Object.assign(
-			ghost.style,
-			{
-				position: "fixed",
-				boxSizing: "border-box",
-				border: "2px dashed rgba(128, 128, 128, 0.5)",
-				borderRadius: "8px",
-				background: "rgba(128, 128, 128, 0.1)",
-				zIndex: "9999",
-				pointerEvents: "none",
-				transition: "opacity 150ms ease",
-				opacity: "0",
-			} satisfies Partial<CSSStyleDeclaration>,
-		);
+		Object.assign(ghost.style, {
+			position: "fixed",
+			boxSizing: "border-box",
+			border: "2px dashed rgba(128, 128, 128, 0.5)",
+			borderRadius: "8px",
+			background: "rgba(128, 128, 128, 0.1)",
+			zIndex: "9999",
+			pointerEvents: "none",
+			transition: "opacity 150ms ease",
+			opacity: "0",
+		} satisfies Partial<CSSStyleDeclaration>);
 
 		if (edge.includes("-")) {
 			// Corner: maximize both axes preview — full viewport

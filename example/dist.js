@@ -187,8 +187,8 @@ function makeDraggable(container, iframe, options = {}) {
     const handle = document.createElement("div");
     Object.assign(handle.style, {
         position: "absolute",
-        top: "0",
-        left: "0",
+        top: "4px",
+        left: "4px",
         zIndex: "1",
         width: `${handleHeight}px`,
         height: `${handleHeight}px`,
@@ -198,8 +198,8 @@ function makeDraggable(container, iframe, options = {}) {
         justifyContent: "center",
         userSelect: "none",
         touchAction: "none",
-        opacity: "0.4",
-        color: "inherit"
+        opacity: "0.6",
+        color: "#808080"
     });
     if (options.handleStyle) {
         Object.assign(handle.style, options.handleStyle);
