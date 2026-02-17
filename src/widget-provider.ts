@@ -268,9 +268,7 @@ export function provideWidget(
 
 	/** Update iframe.src to include the given hash so the next reload preserves it. */
 	function applyHashToSrc(hash: string): void {
-		if (hash) {
-			iframe.src = widgetUrl.split("#")[0] + hash;
-		}
+		iframe.src = widgetUrl.split("#")[0] + hash;
 	}
 
 	/** Request hash from cross-origin iframe via postMessage (with timeout fallback). */

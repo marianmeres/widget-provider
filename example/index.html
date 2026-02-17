@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -77,18 +77,14 @@
 
 			function addLog(msg) {
 				const div = document.createElement("div");
-				div.textContent = `[${
-					new Date().toLocaleTimeString()
-				}] ${msg}`;
+				div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
 				logEl.prepend(div);
 			}
 
 			// Create inline widget
 			const widget = provideWidget({
 				widgetUrl: "./widget.html",
-				parentContainer: document.getElementById(
-					"inline-container",
-				),
+				parentContainer: document.getElementById("inline-container"),
 				stylePreset: "inline",
 				allowedOrigin: "*",
 				draggable: true,
@@ -96,6 +92,7 @@
 				placeholder: {
 					content: "<em>Widget is floating...</em>",
 				},
+				resizable: true,
 			});
 
 			// Subscribe to state changes
@@ -117,16 +114,13 @@
 			});
 
 			// Controls
-			document.getElementById("btn-show").onclick = () =>
-				widget.show();
-			document.getElementById("btn-hide").onclick = () =>
-				widget.hide();
+			document.getElementById("btn-show").onclick = () => widget.show();
+			document.getElementById("btn-hide").onclick = () => widget.hide();
 			document.getElementById("btn-toggle").onclick = () =>
 				widget.toggle();
 			document.getElementById("btn-detach").onclick = () =>
 				widget.detach();
-			document.getElementById("btn-dock").onclick = () =>
-				widget.dock();
+			document.getElementById("btn-dock").onclick = () => widget.dock();
 			document.getElementById("btn-destroy").onclick = () =>
 				widget.destroy();
 			document.getElementById("btn-send").onclick = () => {
@@ -181,9 +175,7 @@
 				fs.container.addEventListener("click", (e) => {
 					if (e.target === fs.container) fs.destroy();
 				});
-				addLog(
-					"Created fullscreen widget (click backdrop to close)",
-				);
+				addLog("Created fullscreen widget (click backdrop to close)");
 			};
 
 			// Widget with built-in trigger button
@@ -200,9 +192,7 @@
 					styleOverrides: { border: "3px solid red" },
 				});
 				wireMessages(triggerWidget, "trigger");
-				addLog(
-					"Created widget with trigger (click the blue button)",
-				);
+				addLog("Created widget with trigger (click the blue button)");
 			};
 		</script>
 	</body>

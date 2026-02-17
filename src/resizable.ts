@@ -25,25 +25,22 @@ export function makeResizable(
 
 	// --- handle element (corner grip at bottom-right) ---
 	const handle = document.createElement("div");
-	Object.assign(
-		handle.style,
-		{
-			position: "absolute",
-			bottom: "0",
-			right: "0",
-			zIndex: "1",
-			width: `${handleSize}px`,
-			height: `${handleSize}px`,
-			cursor: "nwse-resize",
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "center",
-			userSelect: "none",
-			touchAction: "none",
-			opacity: "0.4",
-			color: "inherit",
-		} satisfies Partial<CSSStyleDeclaration>,
-	);
+	Object.assign(handle.style, {
+		position: "absolute",
+		bottom: "2px",
+		right: "2px",
+		zIndex: "1",
+		width: `${handleSize}px`,
+		height: `${handleSize}px`,
+		cursor: "nwse-resize",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		userSelect: "none",
+		touchAction: "none",
+		opacity: "0.6",
+		color: "#808080",
+	} satisfies Partial<CSSStyleDeclaration>);
 
 	if (options.handleStyle) {
 		Object.assign(handle.style, options.handleStyle);
@@ -108,10 +105,10 @@ export function makeResizable(
 		const dx = e.clientX - startX;
 		const dy = e.clientY - startY;
 
-		const maxW = options.maxWidth ??
-			(globalThis.innerWidth - boundaryPadding);
-		const maxH = options.maxHeight ??
-			(globalThis.innerHeight - boundaryPadding);
+		const maxW =
+			options.maxWidth ?? globalThis.innerWidth - boundaryPadding;
+		const maxH =
+			options.maxHeight ?? globalThis.innerHeight - boundaryPadding;
 
 		let newWidth = startWidth + dx;
 		let newHeight = startHeight + dy;

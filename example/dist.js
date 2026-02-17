@@ -420,8 +420,8 @@ function makeResizable(container, iframe, options = {}) {
     const handle = document.createElement("div");
     Object.assign(handle.style, {
         position: "absolute",
-        bottom: "0",
-        right: "0",
+        bottom: "2px",
+        right: "2px",
         zIndex: "1",
         width: `${handleSize}px`,
         height: `${handleSize}px`,
@@ -431,8 +431,8 @@ function makeResizable(container, iframe, options = {}) {
         justifyContent: "center",
         userSelect: "none",
         touchAction: "none",
-        opacity: "0.4",
-        color: "inherit"
+        opacity: "0.6",
+        color: "#808080"
     });
     if (options.handleStyle) {
         Object.assign(handle.style, options.handleStyle);
@@ -1083,9 +1083,7 @@ function provideWidget(options) {
         }
     }
     function applyHashToSrc(hash) {
-        if (hash) {
-            iframe.src = widgetUrl.split("#")[0] + hash;
-        }
+        iframe.src = widgetUrl.split("#")[0] + hash;
     }
     function requestIframeHash(timeoutMs = 50) {
         return new Promise((resolve)=>{
