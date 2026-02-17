@@ -25,11 +25,11 @@
 		</style>
 		<script>
 			window.addEventListener("message", (event) => {
-				if (event.data?.type === "@@__widget_provider__@@requestHash") {
+				if (event.data?.type === "@@__widget_provider__@@__requestHash") {
 					console.log("reporting hash...");
 					window.parent.postMessage(
 						{
-							type: "@@__widget_provider__@@hashReport",
+							type: "@@__widget_provider__@@__hashReport",
 							payload: location.hash,
 						},
 						event.origin,
@@ -43,7 +43,7 @@
 		<p>This is a mock widget SPA running inside an iframe.</p>
 		<button id="btn-ping">Send ping to host</button>
 		<button id="btn-maximize">Maximize</button>
-		<button id="btn-minimize">Minimize</button>
+		<button id="btn-minimize">Restore</button>
 		<button id="btn-max-height">Max Height</button>
 		<button id="btn-min-height">Min Height</button>
 		<button id="btn-max-width">Max Width</button>
@@ -52,7 +52,7 @@
 		<button id="btn-detach">Detach</button>
 		<button id="btn-dock">Dock</button>
 		<button id="btn-hide">Hide</button>
-		<button id="btn-close">Close</button>
+		<button id="btn-destroy">Destroy</button>
 		<button id="btn-native-fs">Native Fullscreen</button>
 		<button id="btn-exit-fs">Exit Fullscreen</button>
 		<pre id="height-state">heightState: --</pre>
@@ -84,15 +84,15 @@
 					`Received: ${type} ${JSON.stringify(data.payload ?? "")}`,
 				);
 
-				if (type === "heightState") {
+				if (type === "__heightState") {
 					heightStateEl.textContent = `heightState: ${data.payload}`;
 				}
 
-				if (type === "widthState") {
+				if (type === "__widthState") {
 					widthStateEl.textContent = `widthState: ${data.payload}`;
 				}
 
-				if (type === "detached") {
+				if (type === "__detached") {
 					detachedStateEl.textContent = `detached: ${data.payload}`;
 				}
 
@@ -107,7 +107,7 @@
 			});
 
 			// Send ready signal
-			parent.postMessage({ type: `${PREFIX}ready` }, "*");
+			parent.postMessage({ type: `${PREFIX}__ready` }, "*");
 			addLog("Sent: ready");
 
 			// Control buttons
@@ -130,37 +130,37 @@
 				});
 			document
 				.getElementById("btn-maximize")
-				.addEventListener("click", () => sendControl("maximize"));
+				.addEventListener("click", () => sendControl("__maximize"));
 			document
 				.getElementById("btn-minimize")
-				.addEventListener("click", () => sendControl("minimize"));
+				.addEventListener("click", () => sendControl("__restore"));
 			document
 				.getElementById("btn-max-height")
-				.addEventListener("click", () => sendControl("maximizeHeight"));
+				.addEventListener("click", () => sendControl("__maximizeHeight"));
 			document
 				.getElementById("btn-min-height")
-				.addEventListener("click", () => sendControl("minimizeHeight"));
+				.addEventListener("click", () => sendControl("__minimizeHeight"));
 			document
 				.getElementById("btn-max-width")
-				.addEventListener("click", () => sendControl("maximizeWidth"));
+				.addEventListener("click", () => sendControl("__maximizeWidth"));
 			document
 				.getElementById("btn-min-width")
-				.addEventListener("click", () => sendControl("minimizeWidth"));
+				.addEventListener("click", () => sendControl("__minimizeWidth"));
 			document
 				.getElementById("btn-reset")
-				.addEventListener("click", () => sendControl("reset"));
+				.addEventListener("click", () => sendControl("__reset"));
 			document
 				.getElementById("btn-detach")
-				.addEventListener("click", () => sendControl("detach"));
+				.addEventListener("click", () => sendControl("__detach"));
 			document
 				.getElementById("btn-dock")
-				.addEventListener("click", () => sendControl("dock"));
+				.addEventListener("click", () => sendControl("__dock"));
 			document
 				.getElementById("btn-hide")
-				.addEventListener("click", () => sendControl("hide"));
+				.addEventListener("click", () => sendControl("__hide"));
 			document
-				.getElementById("btn-close")
-				.addEventListener("click", () => sendControl("close"));
+				.getElementById("btn-destroy")
+				.addEventListener("click", () => sendControl("__destroy"));
 			document
 				.getElementById("btn-native-fs")
 				.addEventListener("click", () => {

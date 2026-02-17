@@ -96,8 +96,8 @@ await widget.dock(); // returns to sidebar, restores inline style, preserves has
 
 Messages between the host and iframe are namespaced with `@@__widget_provider__@@`
 prefix. The iframe can send built-in control messages: `ready`, `open`, `maximize`,
-`minimize`, `maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`,
-`reset`, `hide`, `close`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
+`restore`, `maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`,
+`reset`, `hide`, `destroy`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
 `exitNativeFullscreen`.
 
 The host sends `requestHash` before detach/dock DOM moves. The iframe can

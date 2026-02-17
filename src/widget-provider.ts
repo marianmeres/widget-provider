@@ -15,6 +15,28 @@ import {
 	type DraggableOptions,
 	type MessageHandler,
 	MSG_PREFIX,
+	MSG_TYPE_DESTROY,
+	MSG_TYPE_DETACH,
+	MSG_TYPE_DETACHED,
+	MSG_TYPE_DOCK,
+	MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	MSG_TYPE_HASH_REPORT,
+	MSG_TYPE_HEIGHT_STATE,
+	MSG_TYPE_HIDE,
+	MSG_TYPE_IS_SMALL_SCREEN,
+	MSG_TYPE_MAXIMIZE,
+	MSG_TYPE_MAXIMIZE_HEIGHT,
+	MSG_TYPE_MAXIMIZE_WIDTH,
+	MSG_TYPE_MINIMIZE_HEIGHT,
+	MSG_TYPE_MINIMIZE_WIDTH,
+	MSG_TYPE_NATIVE_FULLSCREEN,
+	MSG_TYPE_OPEN,
+	MSG_TYPE_READY,
+	MSG_TYPE_REQUEST_HASH,
+	MSG_TYPE_RESET,
+	MSG_TYPE_RESTORE,
+	MSG_TYPE_SET_PRESET,
+	MSG_TYPE_WIDTH_STATE,
 	type PlaceholderOptions,
 	type ResizableHandle,
 	type ResizableOptions,
@@ -31,7 +53,8 @@ import { createPubSub } from "@marianmeres/pubsub";
 
 const clog = createClog("widget-provider");
 
-const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const DEFAULT_TRIGGER_ICON =
+	`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 /**
  * Resolve the list of allowed origins for postMessage validation.
@@ -77,7 +100,7 @@ export function resolveAnimateConfig(
  *
  * @throws {Error} If `widgetUrl` is not provided.
  */
-export function provideWidget(
+function _provideWidget(
 	options: WidgetProviderOptions,
 ): WidgetProviderApi {
 	const {
@@ -166,52 +189,52 @@ export function provideWidget(
 		// built-in control messages
 		const bareType = data.type.slice(MSG_PREFIX.length);
 		switch (bareType) {
-			case "ready":
+			case MSG_TYPE_READY:
 				state.update((s) => ({ ...s, ready: true }));
-				send("heightState", state.get().heightState);
-				send("widthState", state.get().widthState);
-				send("detached", state.get().detached);
-				send("isSmallScreen", state.get().isSmallScreen);
+				send(MSG_TYPE_HEIGHT_STATE, state.get().heightState);
+				send(MSG_TYPE_WIDTH_STATE, state.get().widthState);
+				send(MSG_TYPE_DETACHED, state.get().detached);
+				send(MSG_TYPE_IS_SMALL_SCREEN, state.get().isSmallScreen);
 				break;
-			case "open":
+			case MSG_TYPE_OPEN:
 				open();
 				break;
-			case "maximize":
+			case MSG_TYPE_MAXIMIZE:
 				maximize();
 				break;
-			case "minimize":
-				minimize();
+			case MSG_TYPE_RESTORE:
+				restore();
 				break;
-			case "maximizeHeight":
+			case MSG_TYPE_MAXIMIZE_HEIGHT:
 				maximizeHeight(
 					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
-			case "minimizeHeight":
+			case MSG_TYPE_MINIMIZE_HEIGHT:
 				minimizeHeight(
 					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
-			case "maximizeWidth":
+			case MSG_TYPE_MAXIMIZE_WIDTH:
 				maximizeWidth(
 					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
-			case "minimizeWidth":
+			case MSG_TYPE_MINIMIZE_WIDTH:
 				minimizeWidth(
 					typeof data.payload === "number" ? data.payload : undefined,
 				);
 				break;
-			case "reset":
+			case MSG_TYPE_RESET:
 				reset();
 				break;
-			case "hide":
+			case MSG_TYPE_HIDE:
 				hide();
 				break;
-			case "close":
+			case MSG_TYPE_DESTROY:
 				destroy();
 				break;
-			case "setPreset":
+			case MSG_TYPE_SET_PRESET:
 				if (
 					typeof data.payload === "string" &&
 					data.payload in STYLE_PRESETS
@@ -219,16 +242,16 @@ export function provideWidget(
 					setPreset(data.payload as StylePreset);
 				}
 				break;
-			case "detach":
+			case MSG_TYPE_DETACH:
 				detach();
 				break;
-			case "dock":
+			case MSG_TYPE_DOCK:
 				dock();
 				break;
-			case "nativeFullscreen":
+			case MSG_TYPE_NATIVE_FULLSCREEN:
 				requestNativeFullscreen();
 				break;
-			case "exitNativeFullscreen":
+			case MSG_TYPE_EXIT_NATIVE_FULLSCREEN:
 				exitNativeFullscreen();
 				break;
 		}
@@ -243,7 +266,7 @@ export function provideWidget(
 		const small = checkSmallScreen();
 		if (small !== state.get().isSmallScreen) {
 			state.update((s) => ({ ...s, isSmallScreen: small }));
-			send("isSmallScreen", small);
+			send(MSG_TYPE_IS_SMALL_SCREEN, small);
 		}
 	}
 	globalThis.addEventListener("resize", handleResize);
@@ -275,7 +298,7 @@ export function provideWidget(
 	function requestIframeHash(timeoutMs = 50): Promise<string> {
 		return new Promise((resolve) => {
 			let done = false;
-			const unsub = onMessage<string>("hashReport", (payload) => {
+			const unsub = onMessage<string>(MSG_TYPE_HASH_REPORT, (payload) => {
 				if (!done) {
 					done = true;
 					unsub();
@@ -289,7 +312,7 @@ export function provideWidget(
 					resolve("");
 				}
 			}, timeoutMs);
-			send("requestHash");
+			send(MSG_TYPE_REQUEST_HASH);
 		});
 	}
 
@@ -299,8 +322,9 @@ export function provideWidget(
 	// draggable (float only)
 	let draggableHandle: DraggableHandle | null = null;
 	const resolveDragOpts = (): DraggableOptions => {
-		const base: DraggableOptions =
-			typeof options.draggable === "object" ? options.draggable : {};
+		const base: DraggableOptions = typeof options.draggable === "object"
+			? options.draggable
+			: {};
 		return {
 			...base,
 			edgeSnap: base.edgeSnap ?? true,
@@ -319,21 +343,24 @@ export function provideWidget(
 					};
 					const rect = container.getBoundingClientRect();
 					const ghost = document.createElement("div");
-					Object.assign(ghost.style, {
-						position: "fixed",
-						boxSizing: "border-box",
-						border: "2px dashed rgba(128, 128, 128, 0.5)",
-						borderRadius: "8px",
-						background: "rgba(128, 128, 128, 0.1)",
-						zIndex: "10001",
-						pointerEvents: "none",
-						transition: "opacity 150ms ease",
-						opacity: "0",
-						top: `${rect.top}px`,
-						left: `${rect.left}px`,
-						width: presetStyle.width ?? "380px",
-						height: presetStyle.height ?? "520px",
-					} satisfies Partial<CSSStyleDeclaration>);
+					Object.assign(
+						ghost.style,
+						{
+							position: "fixed",
+							boxSizing: "border-box",
+							border: "2px dashed rgba(128, 128, 128, 0.5)",
+							borderRadius: "8px",
+							background: "rgba(128, 128, 128, 0.1)",
+							zIndex: "10001",
+							pointerEvents: "none",
+							transition: "opacity 150ms ease",
+							opacity: "0",
+							top: `${rect.top}px`,
+							left: `${rect.left}px`,
+							width: presetStyle.width ?? "380px",
+							height: presetStyle.height ?? "520px",
+						} satisfies Partial<CSSStyleDeclaration>,
+					);
 					return ghost;
 				},
 			},
@@ -355,8 +382,8 @@ export function provideWidget(
 						heightState: "normal",
 						widthState: "normal",
 					}));
-					send("heightState", "normal");
-					send("widthState", "normal");
+					send(MSG_TYPE_HEIGHT_STATE, "normal");
+					send(MSG_TYPE_WIDTH_STATE, "normal");
 				}
 			},
 			onEdgeSnap: (edge: SnapEdge) => {
@@ -404,8 +431,9 @@ export function provideWidget(
 	// resizable (float only)
 	let resizableHandle: ResizableHandle | null = null;
 	const resolveResizeOpts = (): ResizableOptions => {
-		const base: ResizableOptions =
-			typeof options.resizable === "object" ? options.resizable : {};
+		const base: ResizableOptions = typeof options.resizable === "object"
+			? options.resizable
+			: {};
 		return {
 			...base,
 			onResizeEnd: () => {
@@ -417,8 +445,8 @@ export function provideWidget(
 						heightState: "normal",
 						widthState: "normal",
 					}));
-					send("heightState", "normal");
-					send("widthState", "normal");
+					send(MSG_TYPE_HEIGHT_STATE, "normal");
+					send(MSG_TYPE_WIDTH_STATE, "normal");
 				}
 			},
 		};
@@ -471,6 +499,7 @@ export function provideWidget(
 			viewportUnit: "vh",
 			viewportSize: () => globalThis.innerHeight,
 			stateKey: "heightState" as const,
+			msgType: MSG_TYPE_HEIGHT_STATE,
 			getOverrides: () => heightOverrides,
 			setOverrides: (v: Record<string, string> | null) => {
 				heightOverrides = v;
@@ -483,6 +512,7 @@ export function provideWidget(
 			viewportUnit: "vw",
 			viewportSize: () => globalThis.innerWidth,
 			stateKey: "widthState" as const,
+			msgType: MSG_TYPE_WIDTH_STATE,
 			getOverrides: () => widthOverrides,
 			setOverrides: (v: Record<string, string> | null) => {
 				widthOverrides = v;
@@ -545,8 +575,7 @@ export function provideWidget(
 				o = 20;
 			} else {
 				const startDist = axis === "height" ? rect.top : rect.left;
-				const endDist =
-					vs - (axis === "height" ? rect.bottom : rect.right);
+				const endDist = vs - (axis === "height" ? rect.bottom : rect.right);
 				o = Math.max(0, Math.min(startDist, endDist));
 			}
 		}
@@ -562,7 +591,7 @@ export function provideWidget(
 
 		state.update((s) => ({ ...s, [cfg.stateKey]: "maximized" }));
 		setupInteractions();
-		send(cfg.stateKey, "maximized");
+		send(cfg.msgType, "maximized");
 	}
 
 	function minimizeAxis(axis: Axis, size?: number): void {
@@ -582,7 +611,7 @@ export function provideWidget(
 
 		state.update((s) => ({ ...s, [cfg.stateKey]: "minimized" }));
 		setupInteractions();
-		send(cfg.stateKey, "minimized");
+		send(cfg.msgType, "minimized");
 	}
 
 	// trigger button
@@ -594,10 +623,9 @@ export function provideWidget(
 		if (typeof triggerOpts === "object" && triggerOpts.style) {
 			Object.assign(triggerEl.style, triggerOpts.style);
 		}
-		const content =
-			typeof triggerOpts === "object" && triggerOpts.content
-				? triggerOpts.content
-				: DEFAULT_TRIGGER_ICON;
+		const content = typeof triggerOpts === "object" && triggerOpts.content
+			? triggerOpts.content
+			: DEFAULT_TRIGGER_ICON;
 		triggerEl.innerHTML = content;
 		if (visible) {
 			triggerEl.style.display = "none";
@@ -612,7 +640,7 @@ export function provideWidget(
 		if (state.get().isSmallScreen) {
 			maximize();
 		} else if (!(container.style.top || container.style.left)) {
-			minimize();
+			restore();
 		}
 	}
 
@@ -673,15 +701,15 @@ export function provideWidget(
 			widthState: "normal",
 		}));
 		setupInteractions();
-		send("heightState", "normal");
-		send("widthState", "normal");
+		send(MSG_TYPE_HEIGHT_STATE, "normal");
+		send(MSG_TYPE_WIDTH_STATE, "normal");
 	}
 
 	function maximize(): void {
 		setPreset("fullscreen");
 	}
 
-	function minimize(): void {
+	function restore(): void {
 		setPreset(initialPreset);
 	}
 
@@ -812,9 +840,9 @@ export function provideWidget(
 
 		setupInteractions();
 
-		send("detached", true);
-		send("heightState", "normal");
-		send("widthState", "normal");
+		send(MSG_TYPE_DETACHED, true);
+		send(MSG_TYPE_HEIGHT_STATE, "normal");
+		send(MSG_TYPE_WIDTH_STATE, "normal");
 	}
 
 	async function dock(): Promise<void> {
@@ -852,9 +880,9 @@ export function provideWidget(
 
 		setupInteractions();
 
-		send("detached", false);
-		send("heightState", "normal");
-		send("widthState", "normal");
+		send(MSG_TYPE_DETACHED, false);
+		send(MSG_TYPE_HEIGHT_STATE, "normal");
+		send(MSG_TYPE_WIDTH_STATE, "normal");
 
 		// Clean up references
 		originalParent = null;
@@ -885,7 +913,7 @@ export function provideWidget(
 		destroy,
 		setPreset,
 		maximize,
-		minimize,
+		restore,
 		maximizeHeight,
 		minimizeHeight,
 		maximizeWidth,
@@ -913,3 +941,33 @@ export function provideWidget(
 		},
 	};
 }
+
+/** `provideWidget` with static message-type constants for consumer convenience */
+export const provideWidget = Object.assign(
+	_provideWidget,
+	{
+		MSG_PREFIX,
+		MSG_TYPE_READY,
+		MSG_TYPE_OPEN,
+		MSG_TYPE_MAXIMIZE,
+		MSG_TYPE_RESTORE,
+		MSG_TYPE_MAXIMIZE_HEIGHT,
+		MSG_TYPE_MINIMIZE_HEIGHT,
+		MSG_TYPE_MAXIMIZE_WIDTH,
+		MSG_TYPE_MINIMIZE_WIDTH,
+		MSG_TYPE_RESET,
+		MSG_TYPE_HIDE,
+		MSG_TYPE_DESTROY,
+		MSG_TYPE_SET_PRESET,
+		MSG_TYPE_DETACH,
+		MSG_TYPE_DOCK,
+		MSG_TYPE_NATIVE_FULLSCREEN,
+		MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+		MSG_TYPE_HEIGHT_STATE,
+		MSG_TYPE_WIDTH_STATE,
+		MSG_TYPE_DETACHED,
+		MSG_TYPE_IS_SMALL_SCREEN,
+		MSG_TYPE_REQUEST_HASH,
+		MSG_TYPE_HASH_REPORT,
+	} as const,
+);

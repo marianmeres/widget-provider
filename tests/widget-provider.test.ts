@@ -2,6 +2,29 @@ import { assertEquals, assertThrows } from "@std/assert";
 import {
 	isOriginAllowed,
 	MSG_PREFIX,
+	MSG_TYPE_DESTROY,
+	MSG_TYPE_DETACH,
+	MSG_TYPE_DETACHED,
+	MSG_TYPE_DOCK,
+	MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	MSG_TYPE_HASH_REPORT,
+	MSG_TYPE_HEIGHT_STATE,
+	MSG_TYPE_HIDE,
+	MSG_TYPE_IS_SMALL_SCREEN,
+	MSG_TYPE_MAXIMIZE,
+	MSG_TYPE_MAXIMIZE_HEIGHT,
+	MSG_TYPE_MAXIMIZE_WIDTH,
+	MSG_TYPE_MINIMIZE_HEIGHT,
+	MSG_TYPE_MINIMIZE_WIDTH,
+	MSG_TYPE_NATIVE_FULLSCREEN,
+	MSG_TYPE_OPEN,
+	MSG_TYPE_READY,
+	MSG_TYPE_REQUEST_HASH,
+	MSG_TYPE_RESET,
+	MSG_TYPE_RESTORE,
+	MSG_TYPE_SET_PRESET,
+	MSG_TYPE_WIDTH_STATE,
+	provideWidget,
 	resolveAllowedOrigins,
 	resolveEdge,
 	STYLE_PRESETS,
@@ -132,4 +155,73 @@ Deno.test("resolveEdge: opposite edges returns null", () => {
 Deno.test("resolveEdge: three or four edges returns null", () => {
 	assertEquals(resolveEdge(true, true, true, false), null);
 	assertEquals(resolveEdge(true, true, true, true), null);
+});
+
+// --- provideWidget static constants ---
+
+Deno.test("provideWidget exposes MSG_PREFIX as static property", () => {
+	assertEquals(provideWidget.MSG_PREFIX, "@@__widget_provider__@@");
+	assertEquals(provideWidget.MSG_PREFIX, MSG_PREFIX);
+});
+
+Deno.test("provideWidget exposes all MSG_TYPE_* as static properties", () => {
+	const expected: Record<string, string> = {
+		MSG_TYPE_READY: "__ready",
+		MSG_TYPE_OPEN: "__open",
+		MSG_TYPE_MAXIMIZE: "__maximize",
+		MSG_TYPE_RESTORE: "__restore",
+		MSG_TYPE_MAXIMIZE_HEIGHT: "__maximizeHeight",
+		MSG_TYPE_MINIMIZE_HEIGHT: "__minimizeHeight",
+		MSG_TYPE_MAXIMIZE_WIDTH: "__maximizeWidth",
+		MSG_TYPE_MINIMIZE_WIDTH: "__minimizeWidth",
+		MSG_TYPE_RESET: "__reset",
+		MSG_TYPE_HIDE: "__hide",
+		MSG_TYPE_DESTROY: "__destroy",
+		MSG_TYPE_SET_PRESET: "__setPreset",
+		MSG_TYPE_DETACH: "__detach",
+		MSG_TYPE_DOCK: "__dock",
+		MSG_TYPE_NATIVE_FULLSCREEN: "__nativeFullscreen",
+		MSG_TYPE_EXIT_NATIVE_FULLSCREEN: "__exitNativeFullscreen",
+		MSG_TYPE_HEIGHT_STATE: "__heightState",
+		MSG_TYPE_WIDTH_STATE: "__widthState",
+		MSG_TYPE_DETACHED: "__detached",
+		MSG_TYPE_IS_SMALL_SCREEN: "__isSmallScreen",
+		MSG_TYPE_REQUEST_HASH: "__requestHash",
+		MSG_TYPE_HASH_REPORT: "__hashReport",
+	};
+	for (const [key, value] of Object.entries(expected)) {
+		assertEquals(
+			(provideWidget as unknown as Record<string, string>)[key],
+			value,
+			`provideWidget.${key} should be "${value}"`,
+		);
+	}
+});
+
+Deno.test("provideWidget static properties match standalone exports", () => {
+	assertEquals(provideWidget.MSG_TYPE_READY, MSG_TYPE_READY);
+	assertEquals(provideWidget.MSG_TYPE_OPEN, MSG_TYPE_OPEN);
+	assertEquals(provideWidget.MSG_TYPE_MAXIMIZE, MSG_TYPE_MAXIMIZE);
+	assertEquals(provideWidget.MSG_TYPE_RESTORE, MSG_TYPE_RESTORE);
+	assertEquals(provideWidget.MSG_TYPE_MAXIMIZE_HEIGHT, MSG_TYPE_MAXIMIZE_HEIGHT);
+	assertEquals(provideWidget.MSG_TYPE_MINIMIZE_HEIGHT, MSG_TYPE_MINIMIZE_HEIGHT);
+	assertEquals(provideWidget.MSG_TYPE_MAXIMIZE_WIDTH, MSG_TYPE_MAXIMIZE_WIDTH);
+	assertEquals(provideWidget.MSG_TYPE_MINIMIZE_WIDTH, MSG_TYPE_MINIMIZE_WIDTH);
+	assertEquals(provideWidget.MSG_TYPE_RESET, MSG_TYPE_RESET);
+	assertEquals(provideWidget.MSG_TYPE_HIDE, MSG_TYPE_HIDE);
+	assertEquals(provideWidget.MSG_TYPE_DESTROY, MSG_TYPE_DESTROY);
+	assertEquals(provideWidget.MSG_TYPE_SET_PRESET, MSG_TYPE_SET_PRESET);
+	assertEquals(provideWidget.MSG_TYPE_DETACH, MSG_TYPE_DETACH);
+	assertEquals(provideWidget.MSG_TYPE_DOCK, MSG_TYPE_DOCK);
+	assertEquals(provideWidget.MSG_TYPE_NATIVE_FULLSCREEN, MSG_TYPE_NATIVE_FULLSCREEN);
+	assertEquals(
+		provideWidget.MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+		MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	);
+	assertEquals(provideWidget.MSG_TYPE_HEIGHT_STATE, MSG_TYPE_HEIGHT_STATE);
+	assertEquals(provideWidget.MSG_TYPE_WIDTH_STATE, MSG_TYPE_WIDTH_STATE);
+	assertEquals(provideWidget.MSG_TYPE_DETACHED, MSG_TYPE_DETACHED);
+	assertEquals(provideWidget.MSG_TYPE_IS_SMALL_SCREEN, MSG_TYPE_IS_SMALL_SCREEN);
+	assertEquals(provideWidget.MSG_TYPE_REQUEST_HASH, MSG_TYPE_REQUEST_HASH);
+	assertEquals(provideWidget.MSG_TYPE_HASH_REPORT, MSG_TYPE_HASH_REPORT);
 });

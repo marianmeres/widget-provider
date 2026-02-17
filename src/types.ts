@@ -1,6 +1,53 @@
 /** Namespace prefix for all widget-provider postMessage types */
 export const MSG_PREFIX = "@@__widget_provider__@@";
 
+// --- Built-in message type constants ---
+
+/** Iframe signals it is ready */
+export const MSG_TYPE_READY = "__ready";
+/** Request to open/show widget */
+export const MSG_TYPE_OPEN = "__open";
+/** Request fullscreen preset */
+export const MSG_TYPE_MAXIMIZE = "__maximize";
+/** Restore the initial preset */
+export const MSG_TYPE_RESTORE = "__restore";
+/** Maximize height axis only */
+export const MSG_TYPE_MAXIMIZE_HEIGHT = "__maximizeHeight";
+/** Minimize height axis only */
+export const MSG_TYPE_MINIMIZE_HEIGHT = "__minimizeHeight";
+/** Maximize width axis only */
+export const MSG_TYPE_MAXIMIZE_WIDTH = "__maximizeWidth";
+/** Minimize width axis only */
+export const MSG_TYPE_MINIMIZE_WIDTH = "__minimizeWidth";
+/** Reset both dimensions to preset defaults */
+export const MSG_TYPE_RESET = "__reset";
+/** Hide the widget */
+export const MSG_TYPE_HIDE = "__hide";
+/** Destroy the widget */
+export const MSG_TYPE_DESTROY = "__destroy";
+/** Switch style preset (payload: preset name) */
+export const MSG_TYPE_SET_PRESET = "__setPreset";
+/** Detach from parent container */
+export const MSG_TYPE_DETACH = "__detach";
+/** Dock back to parent container */
+export const MSG_TYPE_DOCK = "__dock";
+/** Request native browser fullscreen */
+export const MSG_TYPE_NATIVE_FULLSCREEN = "__nativeFullscreen";
+/** Exit native browser fullscreen */
+export const MSG_TYPE_EXIT_NATIVE_FULLSCREEN = "__exitNativeFullscreen";
+/** Current height state (payload: DimensionState) */
+export const MSG_TYPE_HEIGHT_STATE = "__heightState";
+/** Current width state (payload: DimensionState) */
+export const MSG_TYPE_WIDTH_STATE = "__widthState";
+/** Detach status (payload: boolean) */
+export const MSG_TYPE_DETACHED = "__detached";
+/** Small screen detection (payload: boolean) */
+export const MSG_TYPE_IS_SMALL_SCREEN = "__isSmallScreen";
+/** Request iframe URL hash (cross-origin protocol) */
+export const MSG_TYPE_REQUEST_HASH = "__requestHash";
+/** Report iframe URL hash (cross-origin protocol) */
+export const MSG_TYPE_HASH_REPORT = "__hashReport";
+
 /** The structured envelope for all host <-> iframe messages */
 export interface WidgetMessage<T = unknown> {
 	type: string;
@@ -260,8 +307,8 @@ export interface WidgetProviderApi {
 	setPreset(preset: StylePreset): void;
 	/** Shortcut: switch to fullscreen preset */
 	maximize(): void;
-	/** Shortcut: switch back to the initial preset */
-	minimize(): void;
+	/** Restore the initial preset (reverse of maximize) */
+	restore(): void;
 	/** Maximize only the widget height, keeping width and horizontal position */
 	maximizeHeight(offset?: number): void;
 	/** Collapse the widget to a minimal height (default 48px) */

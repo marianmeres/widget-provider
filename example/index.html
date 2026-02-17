@@ -109,7 +109,7 @@
 				addLog(`ping from widget: ${JSON.stringify(payload)}`);
 			});
 
-			widget.onMessage("ready", () => {
+			widget.onMessage("__ready", () => {
 				addLog("Widget is ready!");
 			});
 
@@ -136,7 +136,7 @@
 				w.onMessage("ping", (payload) => {
 					addLog(`[${label}] ping: ${JSON.stringify(payload)}`);
 				});
-				w.onMessage("ready", () => {
+				w.onMessage("__ready", () => {
 					addLog(`[${label}] ready`);
 				});
 			}

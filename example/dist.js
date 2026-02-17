@@ -632,6 +632,28 @@ function applyIframeBaseStyles(iframe) {
     Object.assign(iframe.style, IFRAME_BASE);
 }
 const MSG_PREFIX = "@@__widget_provider__@@";
+const MSG_TYPE_READY = "__ready";
+const MSG_TYPE_OPEN = "__open";
+const MSG_TYPE_MAXIMIZE = "__maximize";
+const MSG_TYPE_RESTORE = "__restore";
+const MSG_TYPE_MAXIMIZE_HEIGHT = "__maximizeHeight";
+const MSG_TYPE_MINIMIZE_HEIGHT = "__minimizeHeight";
+const MSG_TYPE_MAXIMIZE_WIDTH = "__maximizeWidth";
+const MSG_TYPE_MINIMIZE_WIDTH = "__minimizeWidth";
+const MSG_TYPE_RESET = "__reset";
+const MSG_TYPE_HIDE = "__hide";
+const MSG_TYPE_DESTROY = "__destroy";
+const MSG_TYPE_SET_PRESET = "__setPreset";
+const MSG_TYPE_DETACH = "__detach";
+const MSG_TYPE_DOCK = "__dock";
+const MSG_TYPE_NATIVE_FULLSCREEN = "__nativeFullscreen";
+const MSG_TYPE_EXIT_NATIVE_FULLSCREEN = "__exitNativeFullscreen";
+const MSG_TYPE_HEIGHT_STATE = "__heightState";
+const MSG_TYPE_WIDTH_STATE = "__widthState";
+const MSG_TYPE_DETACHED = "__detached";
+const MSG_TYPE_IS_SMALL_SCREEN = "__isSmallScreen";
+const MSG_TYPE_REQUEST_HASH = "__requestHash";
+const MSG_TYPE_HASH_REPORT = "__hashReport";
 const CLOG_STYLED = Symbol.for("@marianmeres/clog-styled");
 const COLORS = [
     "#969696",
@@ -942,7 +964,7 @@ function resolveAnimateConfig(opt) {
         transition: opt.transition
     } : base;
 }
-function provideWidget(options) {
+function _provideWidget(options) {
     const { widgetUrl, parentContainer, stylePreset = "inline", styleOverrides = {}, allowedOrigin, visible = true, sandbox = "allow-scripts allow-same-origin", iframeAttrs = {}, smallScreenBreakpoint = 640 } = options;
     if (!widgetUrl) {
         throw new Error("widgetUrl is required");
@@ -998,61 +1020,61 @@ function provideWidget(options) {
         if (!data.type.startsWith(MSG_PREFIX)) return;
         const bareType = data.type.slice(MSG_PREFIX.length);
         switch(bareType){
-            case "ready":
+            case MSG_TYPE_READY:
                 state.update((s)=>({
                         ...s,
                         ready: true
                     }));
-                send("heightState", state.get().heightState);
-                send("widthState", state.get().widthState);
-                send("detached", state.get().detached);
-                send("isSmallScreen", state.get().isSmallScreen);
+                send(MSG_TYPE_HEIGHT_STATE, state.get().heightState);
+                send(MSG_TYPE_WIDTH_STATE, state.get().widthState);
+                send(MSG_TYPE_DETACHED, state.get().detached);
+                send(MSG_TYPE_IS_SMALL_SCREEN, state.get().isSmallScreen);
                 break;
-            case "open":
+            case MSG_TYPE_OPEN:
                 open();
                 break;
-            case "maximize":
+            case MSG_TYPE_MAXIMIZE:
                 maximize();
                 break;
-            case "minimize":
-                minimize();
+            case MSG_TYPE_RESTORE:
+                restore();
                 break;
-            case "maximizeHeight":
+            case MSG_TYPE_MAXIMIZE_HEIGHT:
                 maximizeHeight(typeof data.payload === "number" ? data.payload : undefined);
                 break;
-            case "minimizeHeight":
+            case MSG_TYPE_MINIMIZE_HEIGHT:
                 minimizeHeight(typeof data.payload === "number" ? data.payload : undefined);
                 break;
-            case "maximizeWidth":
+            case MSG_TYPE_MAXIMIZE_WIDTH:
                 maximizeWidth(typeof data.payload === "number" ? data.payload : undefined);
                 break;
-            case "minimizeWidth":
+            case MSG_TYPE_MINIMIZE_WIDTH:
                 minimizeWidth(typeof data.payload === "number" ? data.payload : undefined);
                 break;
-            case "reset":
+            case MSG_TYPE_RESET:
                 reset();
                 break;
-            case "hide":
+            case MSG_TYPE_HIDE:
                 hide();
                 break;
-            case "close":
+            case MSG_TYPE_DESTROY:
                 destroy();
                 break;
-            case "setPreset":
+            case MSG_TYPE_SET_PRESET:
                 if (typeof data.payload === "string" && data.payload in STYLE_PRESETS) {
                     setPreset(data.payload);
                 }
                 break;
-            case "detach":
+            case MSG_TYPE_DETACH:
                 detach();
                 break;
-            case "dock":
+            case MSG_TYPE_DOCK:
                 dock();
                 break;
-            case "nativeFullscreen":
+            case MSG_TYPE_NATIVE_FULLSCREEN:
                 requestNativeFullscreen();
                 break;
-            case "exitNativeFullscreen":
+            case MSG_TYPE_EXIT_NATIVE_FULLSCREEN:
                 exitNativeFullscreen();
                 break;
         }
@@ -1066,7 +1088,7 @@ function provideWidget(options) {
                     ...s,
                     isSmallScreen: small
                 }));
-            send("isSmallScreen", small);
+            send(MSG_TYPE_IS_SMALL_SCREEN, small);
         }
     }
     globalThis.addEventListener("resize", handleResize);
@@ -1088,7 +1110,7 @@ function provideWidget(options) {
     function requestIframeHash(timeoutMs = 50) {
         return new Promise((resolve)=>{
             let done = false;
-            const unsub = onMessage("hashReport", (payload)=>{
+            const unsub = onMessage(MSG_TYPE_HASH_REPORT, (payload)=>{
                 if (!done) {
                     done = true;
                     unsub();
@@ -1102,7 +1124,7 @@ function provideWidget(options) {
                     resolve("");
                 }
             }, timeoutMs);
-            send("requestHash");
+            send(MSG_TYPE_REQUEST_HASH);
         });
     }
     const resolvePlaceholderOpts = ()=>typeof options.placeholder === "object" ? options.placeholder : {};
@@ -1157,8 +1179,8 @@ function provideWidget(options) {
                             heightState: "normal",
                             widthState: "normal"
                         }));
-                    send("heightState", "normal");
-                    send("widthState", "normal");
+                    send(MSG_TYPE_HEIGHT_STATE, "normal");
+                    send(MSG_TYPE_WIDTH_STATE, "normal");
                 }
             },
             onEdgeSnap: (edge)=>{
@@ -1205,8 +1227,8 @@ function provideWidget(options) {
                             heightState: "normal",
                             widthState: "normal"
                         }));
-                    send("heightState", "normal");
-                    send("widthState", "normal");
+                    send(MSG_TYPE_HEIGHT_STATE, "normal");
+                    send(MSG_TYPE_WIDTH_STATE, "normal");
                 }
             }
         };
@@ -1241,6 +1263,7 @@ function provideWidget(options) {
             viewportUnit: "vh",
             viewportSize: ()=>globalThis.innerHeight,
             stateKey: "heightState",
+            msgType: MSG_TYPE_HEIGHT_STATE,
             getOverrides: ()=>heightOverrides,
             setOverrides: (v)=>{
                 heightOverrides = v;
@@ -1253,6 +1276,7 @@ function provideWidget(options) {
             viewportUnit: "vw",
             viewportSize: ()=>globalThis.innerWidth,
             stateKey: "widthState",
+            msgType: MSG_TYPE_WIDTH_STATE,
             getOverrides: ()=>widthOverrides,
             setOverrides: (v)=>{
                 widthOverrides = v;
@@ -1316,7 +1340,7 @@ function provideWidget(options) {
                 [cfg.stateKey]: "maximized"
             }));
         setupInteractions();
-        send(cfg.stateKey, "maximized");
+        send(cfg.msgType, "maximized");
     }
     function minimizeAxis(axis, size) {
         if (state.get().destroyed) return;
@@ -1334,7 +1358,7 @@ function provideWidget(options) {
                 [cfg.stateKey]: "minimized"
             }));
         setupInteractions();
-        send(cfg.stateKey, "minimized");
+        send(cfg.msgType, "minimized");
     }
     const triggerOpts = options.trigger;
     let triggerEl = null;
@@ -1357,7 +1381,7 @@ function provideWidget(options) {
         if (state.get().isSmallScreen) {
             maximize();
         } else if (!(container.style.top || container.style.left)) {
-            minimize();
+            restore();
         }
     }
     function show() {
@@ -1419,13 +1443,13 @@ function provideWidget(options) {
                 widthState: "normal"
             }));
         setupInteractions();
-        send("heightState", "normal");
-        send("widthState", "normal");
+        send(MSG_TYPE_HEIGHT_STATE, "normal");
+        send(MSG_TYPE_WIDTH_STATE, "normal");
     }
     function maximize() {
         setPreset("fullscreen");
     }
-    function minimize() {
+    function restore() {
         setPreset(initialPreset);
     }
     function maximizeHeight(offset) {
@@ -1519,9 +1543,9 @@ function provideWidget(options) {
                 widthState: "normal"
             }));
         setupInteractions();
-        send("detached", true);
-        send("heightState", "normal");
-        send("widthState", "normal");
+        send(MSG_TYPE_DETACHED, true);
+        send(MSG_TYPE_HEIGHT_STATE, "normal");
+        send(MSG_TYPE_WIDTH_STATE, "normal");
     }
     async function dock() {
         const s = state.get();
@@ -1544,9 +1568,9 @@ function provideWidget(options) {
                 widthState: "normal"
             }));
         setupInteractions();
-        send("detached", false);
-        send("heightState", "normal");
-        send("widthState", "normal");
+        send(MSG_TYPE_DETACHED, false);
+        send(MSG_TYPE_HEIGHT_STATE, "normal");
+        send(MSG_TYPE_WIDTH_STATE, "normal");
         originalParent = null;
         presetBeforeDetach = null;
     }
@@ -1569,7 +1593,7 @@ function provideWidget(options) {
         destroy,
         setPreset,
         maximize,
-        minimize,
+        restore,
         maximizeHeight,
         minimizeHeight,
         maximizeWidth,
@@ -1597,8 +1621,33 @@ function provideWidget(options) {
         }
     };
 }
+const provideWidget = Object.assign(_provideWidget, {
+    MSG_PREFIX,
+    MSG_TYPE_READY,
+    MSG_TYPE_OPEN,
+    MSG_TYPE_MAXIMIZE,
+    MSG_TYPE_RESTORE,
+    MSG_TYPE_MAXIMIZE_HEIGHT,
+    MSG_TYPE_MINIMIZE_HEIGHT,
+    MSG_TYPE_MAXIMIZE_WIDTH,
+    MSG_TYPE_MINIMIZE_WIDTH,
+    MSG_TYPE_RESET,
+    MSG_TYPE_HIDE,
+    MSG_TYPE_DESTROY,
+    MSG_TYPE_SET_PRESET,
+    MSG_TYPE_DETACH,
+    MSG_TYPE_DOCK,
+    MSG_TYPE_NATIVE_FULLSCREEN,
+    MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+    MSG_TYPE_HEIGHT_STATE,
+    MSG_TYPE_WIDTH_STATE,
+    MSG_TYPE_DETACHED,
+    MSG_TYPE_IS_SMALL_SCREEN,
+    MSG_TYPE_REQUEST_HASH,
+    MSG_TYPE_HASH_REPORT
+});
 export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { makeDraggable as makeDraggable, resolveEdge as resolveEdge };
 export { makeResizable as makeResizable };
-export { MSG_PREFIX as MSG_PREFIX };
+export { MSG_PREFIX as MSG_PREFIX, MSG_TYPE_DESTROY as MSG_TYPE_DESTROY, MSG_TYPE_DETACH as MSG_TYPE_DETACH, MSG_TYPE_DETACHED as MSG_TYPE_DETACHED, MSG_TYPE_DOCK as MSG_TYPE_DOCK, MSG_TYPE_EXIT_NATIVE_FULLSCREEN as MSG_TYPE_EXIT_NATIVE_FULLSCREEN, MSG_TYPE_HASH_REPORT as MSG_TYPE_HASH_REPORT, MSG_TYPE_HEIGHT_STATE as MSG_TYPE_HEIGHT_STATE, MSG_TYPE_HIDE as MSG_TYPE_HIDE, MSG_TYPE_IS_SMALL_SCREEN as MSG_TYPE_IS_SMALL_SCREEN, MSG_TYPE_MAXIMIZE as MSG_TYPE_MAXIMIZE, MSG_TYPE_MAXIMIZE_HEIGHT as MSG_TYPE_MAXIMIZE_HEIGHT, MSG_TYPE_MAXIMIZE_WIDTH as MSG_TYPE_MAXIMIZE_WIDTH, MSG_TYPE_MINIMIZE_HEIGHT as MSG_TYPE_MINIMIZE_HEIGHT, MSG_TYPE_MINIMIZE_WIDTH as MSG_TYPE_MINIMIZE_WIDTH, MSG_TYPE_NATIVE_FULLSCREEN as MSG_TYPE_NATIVE_FULLSCREEN, MSG_TYPE_OPEN as MSG_TYPE_OPEN, MSG_TYPE_READY as MSG_TYPE_READY, MSG_TYPE_REQUEST_HASH as MSG_TYPE_REQUEST_HASH, MSG_TYPE_RESET as MSG_TYPE_RESET, MSG_TYPE_RESTORE as MSG_TYPE_RESTORE, MSG_TYPE_SET_PRESET as MSG_TYPE_SET_PRESET, MSG_TYPE_WIDTH_STATE as MSG_TYPE_WIDTH_STATE };
 export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, STYLE_PRESETS as STYLE_PRESETS };
