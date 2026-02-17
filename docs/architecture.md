@@ -31,7 +31,7 @@ Host → iframe:  widget.send(type, payload) → postMessage with MSG_PREFIX
 iframe → Host:  postMessage with MSG_PREFIX → handleMessage → built-in handlers + onMessage callbacks
 
 Built-in control messages (from iframe):
-  ready, open, maximize, restore, maximizeHeight, minimizeHeight,
+  ready, open, fullscreen, restore, maximizeHeight, minimizeHeight,
   maximizeWidth, minimizeWidth, reset, hide, destroy, setPreset,
   detach, dock, nativeFullscreen, exitNativeFullscreen
 

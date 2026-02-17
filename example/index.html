@@ -57,8 +57,9 @@
 			<button id="btn-detach">detach()</button>
 			<button id="btn-dock">dock()</button>
 			<button id="btn-destroy">destroy()</button>
+			<button id="btn-fullscreen">fullscreen()</button>
 			<button id="btn-float">Create float widget</button>
-			<button id="btn-fullscreen">Create fullscreen widget</button>
+			<button id="btn-create-fullscreen">Create fullscreen widget</button>
 			<button id="btn-trigger">Create widget with trigger</button>
 		</div>
 
@@ -123,6 +124,8 @@
 			document.getElementById("btn-dock").onclick = () => widget.dock();
 			document.getElementById("btn-destroy").onclick = () =>
 				widget.destroy();
+			document.getElementById("btn-fullscreen").onclick = () =>
+				widget.fullscreen();
 			document.getElementById("btn-send").onclick = () => {
 				widget.send("hello", { greeting: "Hi from host!" });
 				addLog("Sent: hello");
@@ -161,7 +164,7 @@
 			};
 
 			// Fullscreen widget (click container backdrop to hide)
-			document.getElementById("btn-fullscreen").onclick = () => {
+			document.getElementById("btn-create-fullscreen").onclick = () => {
 				const fs = provideWidget({
 					widgetUrl: "./widget.html",
 					stylePreset: "fullscreen",

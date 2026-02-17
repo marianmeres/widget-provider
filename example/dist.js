@@ -634,7 +634,7 @@ function applyIframeBaseStyles(iframe) {
 const MSG_PREFIX = "@@__widget_provider__@@";
 const MSG_TYPE_READY = "__ready";
 const MSG_TYPE_OPEN = "__open";
-const MSG_TYPE_MAXIMIZE = "__maximize";
+const MSG_TYPE_FULLSCREEN = "__fullscreen";
 const MSG_TYPE_RESTORE = "__restore";
 const MSG_TYPE_MAXIMIZE_HEIGHT = "__maximizeHeight";
 const MSG_TYPE_MINIMIZE_HEIGHT = "__minimizeHeight";
@@ -652,6 +652,7 @@ const MSG_TYPE_HEIGHT_STATE = "__heightState";
 const MSG_TYPE_WIDTH_STATE = "__widthState";
 const MSG_TYPE_DETACHED = "__detached";
 const MSG_TYPE_IS_SMALL_SCREEN = "__isSmallScreen";
+const MSG_TYPE_PRESET = "__preset";
 const MSG_TYPE_REQUEST_HASH = "__requestHash";
 const MSG_TYPE_HASH_REPORT = "__hashReport";
 const CLOG_STYLED = Symbol.for("@marianmeres/clog-styled");
@@ -1025,6 +1026,7 @@ function _provideWidget(options) {
                         ...s,
                         ready: true
                     }));
+                send(MSG_TYPE_PRESET, state.get().preset);
                 send(MSG_TYPE_HEIGHT_STATE, state.get().heightState);
                 send(MSG_TYPE_WIDTH_STATE, state.get().widthState);
                 send(MSG_TYPE_DETACHED, state.get().detached);
@@ -1033,8 +1035,8 @@ function _provideWidget(options) {
             case MSG_TYPE_OPEN:
                 open();
                 break;
-            case MSG_TYPE_MAXIMIZE:
-                maximize();
+            case MSG_TYPE_FULLSCREEN:
+                fullscreen();
                 break;
             case MSG_TYPE_RESTORE:
                 restore();
@@ -1379,7 +1381,7 @@ function _provideWidget(options) {
     function open() {
         show();
         if (state.get().isSmallScreen) {
-            maximize();
+            fullscreen();
         } else if (!(container.style.top || container.style.left)) {
             restore();
         }
@@ -1443,10 +1445,11 @@ function _provideWidget(options) {
                 widthState: "normal"
             }));
         setupInteractions();
+        send(MSG_TYPE_PRESET, preset);
         send(MSG_TYPE_HEIGHT_STATE, "normal");
         send(MSG_TYPE_WIDTH_STATE, "normal");
     }
-    function maximize() {
+    function fullscreen() {
         setPreset("fullscreen");
     }
     function restore() {
@@ -1592,7 +1595,7 @@ function _provideWidget(options) {
         toggle,
         destroy,
         setPreset,
-        maximize,
+        fullscreen,
         restore,
         maximizeHeight,
         minimizeHeight,
@@ -1625,7 +1628,7 @@ const provideWidget = Object.assign(_provideWidget, {
     MSG_PREFIX,
     MSG_TYPE_READY,
     MSG_TYPE_OPEN,
-    MSG_TYPE_MAXIMIZE,
+    MSG_TYPE_FULLSCREEN,
     MSG_TYPE_RESTORE,
     MSG_TYPE_MAXIMIZE_HEIGHT,
     MSG_TYPE_MINIMIZE_HEIGHT,
@@ -1643,11 +1646,12 @@ const provideWidget = Object.assign(_provideWidget, {
     MSG_TYPE_WIDTH_STATE,
     MSG_TYPE_DETACHED,
     MSG_TYPE_IS_SMALL_SCREEN,
+    MSG_TYPE_PRESET,
     MSG_TYPE_REQUEST_HASH,
     MSG_TYPE_HASH_REPORT
 });
 export { isOriginAllowed as isOriginAllowed, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { makeDraggable as makeDraggable, resolveEdge as resolveEdge };
 export { makeResizable as makeResizable };
-export { MSG_PREFIX as MSG_PREFIX, MSG_TYPE_DESTROY as MSG_TYPE_DESTROY, MSG_TYPE_DETACH as MSG_TYPE_DETACH, MSG_TYPE_DETACHED as MSG_TYPE_DETACHED, MSG_TYPE_DOCK as MSG_TYPE_DOCK, MSG_TYPE_EXIT_NATIVE_FULLSCREEN as MSG_TYPE_EXIT_NATIVE_FULLSCREEN, MSG_TYPE_HASH_REPORT as MSG_TYPE_HASH_REPORT, MSG_TYPE_HEIGHT_STATE as MSG_TYPE_HEIGHT_STATE, MSG_TYPE_HIDE as MSG_TYPE_HIDE, MSG_TYPE_IS_SMALL_SCREEN as MSG_TYPE_IS_SMALL_SCREEN, MSG_TYPE_MAXIMIZE as MSG_TYPE_MAXIMIZE, MSG_TYPE_MAXIMIZE_HEIGHT as MSG_TYPE_MAXIMIZE_HEIGHT, MSG_TYPE_MAXIMIZE_WIDTH as MSG_TYPE_MAXIMIZE_WIDTH, MSG_TYPE_MINIMIZE_HEIGHT as MSG_TYPE_MINIMIZE_HEIGHT, MSG_TYPE_MINIMIZE_WIDTH as MSG_TYPE_MINIMIZE_WIDTH, MSG_TYPE_NATIVE_FULLSCREEN as MSG_TYPE_NATIVE_FULLSCREEN, MSG_TYPE_OPEN as MSG_TYPE_OPEN, MSG_TYPE_READY as MSG_TYPE_READY, MSG_TYPE_REQUEST_HASH as MSG_TYPE_REQUEST_HASH, MSG_TYPE_RESET as MSG_TYPE_RESET, MSG_TYPE_RESTORE as MSG_TYPE_RESTORE, MSG_TYPE_SET_PRESET as MSG_TYPE_SET_PRESET, MSG_TYPE_WIDTH_STATE as MSG_TYPE_WIDTH_STATE };
+export { MSG_PREFIX as MSG_PREFIX, MSG_TYPE_DESTROY as MSG_TYPE_DESTROY, MSG_TYPE_DETACH as MSG_TYPE_DETACH, MSG_TYPE_DETACHED as MSG_TYPE_DETACHED, MSG_TYPE_DOCK as MSG_TYPE_DOCK, MSG_TYPE_EXIT_NATIVE_FULLSCREEN as MSG_TYPE_EXIT_NATIVE_FULLSCREEN, MSG_TYPE_HASH_REPORT as MSG_TYPE_HASH_REPORT, MSG_TYPE_HEIGHT_STATE as MSG_TYPE_HEIGHT_STATE, MSG_TYPE_HIDE as MSG_TYPE_HIDE, MSG_TYPE_IS_SMALL_SCREEN as MSG_TYPE_IS_SMALL_SCREEN, MSG_TYPE_FULLSCREEN as MSG_TYPE_FULLSCREEN, MSG_TYPE_MAXIMIZE_HEIGHT as MSG_TYPE_MAXIMIZE_HEIGHT, MSG_TYPE_MAXIMIZE_WIDTH as MSG_TYPE_MAXIMIZE_WIDTH, MSG_TYPE_MINIMIZE_HEIGHT as MSG_TYPE_MINIMIZE_HEIGHT, MSG_TYPE_MINIMIZE_WIDTH as MSG_TYPE_MINIMIZE_WIDTH, MSG_TYPE_NATIVE_FULLSCREEN as MSG_TYPE_NATIVE_FULLSCREEN, MSG_TYPE_OPEN as MSG_TYPE_OPEN, MSG_TYPE_PRESET as MSG_TYPE_PRESET, MSG_TYPE_READY as MSG_TYPE_READY, MSG_TYPE_REQUEST_HASH as MSG_TYPE_REQUEST_HASH, MSG_TYPE_RESET as MSG_TYPE_RESET, MSG_TYPE_RESTORE as MSG_TYPE_RESTORE, MSG_TYPE_SET_PRESET as MSG_TYPE_SET_PRESET, MSG_TYPE_WIDTH_STATE as MSG_TYPE_WIDTH_STATE };
 export { ANIMATE_PRESETS as ANIMATE_PRESETS, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, STYLE_PRESETS as STYLE_PRESETS };

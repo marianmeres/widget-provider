@@ -42,7 +42,7 @@
 		<h3>Widget (iframe)</h3>
 		<p>This is a mock widget SPA running inside an iframe.</p>
 		<button id="btn-ping">Send ping to host</button>
-		<button id="btn-maximize">Maximize</button>
+		<button id="btn-fullscreen">Fullscreen</button>
 		<button id="btn-minimize">Restore</button>
 		<button id="btn-max-height">Max Height</button>
 		<button id="btn-min-height">Min Height</button>
@@ -55,6 +55,7 @@
 		<button id="btn-destroy">Destroy</button>
 		<button id="btn-native-fs">Native Fullscreen</button>
 		<button id="btn-exit-fs">Exit Fullscreen</button>
+		<pre id="preset-state">preset: --</pre>
 		<pre id="height-state">heightState: --</pre>
 		<pre id="width-state">widthState: --</pre>
 		<pre id="detached-state">detached: --</pre>
@@ -63,6 +64,7 @@
 		<script>
 			const PREFIX = "@@__widget_provider__@@";
 			const log = document.getElementById("log");
+			const presetStateEl = document.getElementById("preset-state");
 			const heightStateEl = document.getElementById("height-state");
 			const widthStateEl = document.getElementById("width-state");
 			const detachedStateEl = document.getElementById("detached-state");
@@ -83,6 +85,10 @@
 				addLog(
 					`Received: ${type} ${JSON.stringify(data.payload ?? "")}`,
 				);
+
+				if (type === "__preset") {
+					presetStateEl.textContent = `preset: ${data.payload}`;
+				}
 
 				if (type === "__heightState") {
 					heightStateEl.textContent = `heightState: ${data.payload}`;
@@ -129,8 +135,8 @@
 					addLog("Sent: ping");
 				});
 			document
-				.getElementById("btn-maximize")
-				.addEventListener("click", () => sendControl("__maximize"));
+				.getElementById("btn-fullscreen")
+				.addEventListener("click", () => sendControl("__fullscreen"));
 			document
 				.getElementById("btn-minimize")
 				.addEventListener("click", () => sendControl("__restore"));

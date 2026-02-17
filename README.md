@@ -35,7 +35,7 @@ const widget = provideWidget({
 });
 
 // Control visibility
-widget.open(); // show + auto-maximize on small screens
+widget.open(); // show + auto-fullscreen on small screens
 widget.show();
 widget.hide();
 widget.toggle();
@@ -95,7 +95,7 @@ await widget.dock(); // returns to sidebar, restores inline style, preserves has
 ### Message Protocol
 
 Messages between the host and iframe are namespaced with `@@__widget_provider__@@`
-prefix. The iframe can send built-in control messages: `ready`, `open`, `maximize`,
+prefix. The iframe can send built-in control messages: `ready`, `open`, `fullscreen`,
 `restore`, `maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`,
 `reset`, `hide`, `destroy`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
 `exitNativeFullscreen`.

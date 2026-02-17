@@ -24,13 +24,14 @@ import {
 	MSG_TYPE_HEIGHT_STATE,
 	MSG_TYPE_HIDE,
 	MSG_TYPE_IS_SMALL_SCREEN,
-	MSG_TYPE_MAXIMIZE,
+	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_MAXIMIZE_HEIGHT,
 	MSG_TYPE_MAXIMIZE_WIDTH,
 	MSG_TYPE_MINIMIZE_HEIGHT,
 	MSG_TYPE_MINIMIZE_WIDTH,
 	MSG_TYPE_NATIVE_FULLSCREEN,
 	MSG_TYPE_OPEN,
+	MSG_TYPE_PRESET,
 	MSG_TYPE_READY,
 	MSG_TYPE_REQUEST_HASH,
 	MSG_TYPE_RESET,
@@ -191,6 +192,7 @@ function _provideWidget(
 		switch (bareType) {
 			case MSG_TYPE_READY:
 				state.update((s) => ({ ...s, ready: true }));
+				send(MSG_TYPE_PRESET, state.get().preset);
 				send(MSG_TYPE_HEIGHT_STATE, state.get().heightState);
 				send(MSG_TYPE_WIDTH_STATE, state.get().widthState);
 				send(MSG_TYPE_DETACHED, state.get().detached);
@@ -199,8 +201,8 @@ function _provideWidget(
 			case MSG_TYPE_OPEN:
 				open();
 				break;
-			case MSG_TYPE_MAXIMIZE:
-				maximize();
+			case MSG_TYPE_FULLSCREEN:
+				fullscreen();
 				break;
 			case MSG_TYPE_RESTORE:
 				restore();
@@ -638,7 +640,7 @@ function _provideWidget(
 	function open(): void {
 		show();
 		if (state.get().isSmallScreen) {
-			maximize();
+			fullscreen();
 		} else if (!(container.style.top || container.style.left)) {
 			restore();
 		}
@@ -701,11 +703,12 @@ function _provideWidget(
 			widthState: "normal",
 		}));
 		setupInteractions();
+		send(MSG_TYPE_PRESET, preset);
 		send(MSG_TYPE_HEIGHT_STATE, "normal");
 		send(MSG_TYPE_WIDTH_STATE, "normal");
 	}
 
-	function maximize(): void {
+	function fullscreen(): void {
 		setPreset("fullscreen");
 	}
 
@@ -912,7 +915,7 @@ function _provideWidget(
 		toggle,
 		destroy,
 		setPreset,
-		maximize,
+		fullscreen,
 		restore,
 		maximizeHeight,
 		minimizeHeight,
@@ -948,7 +951,7 @@ export const provideWidget: {
 	readonly MSG_PREFIX: typeof MSG_PREFIX;
 	readonly MSG_TYPE_READY: typeof MSG_TYPE_READY;
 	readonly MSG_TYPE_OPEN: typeof MSG_TYPE_OPEN;
-	readonly MSG_TYPE_MAXIMIZE: typeof MSG_TYPE_MAXIMIZE;
+	readonly MSG_TYPE_FULLSCREEN: typeof MSG_TYPE_FULLSCREEN;
 	readonly MSG_TYPE_RESTORE: typeof MSG_TYPE_RESTORE;
 	readonly MSG_TYPE_MAXIMIZE_HEIGHT: typeof MSG_TYPE_MAXIMIZE_HEIGHT;
 	readonly MSG_TYPE_MINIMIZE_HEIGHT: typeof MSG_TYPE_MINIMIZE_HEIGHT;
@@ -966,6 +969,7 @@ export const provideWidget: {
 	readonly MSG_TYPE_WIDTH_STATE: typeof MSG_TYPE_WIDTH_STATE;
 	readonly MSG_TYPE_DETACHED: typeof MSG_TYPE_DETACHED;
 	readonly MSG_TYPE_IS_SMALL_SCREEN: typeof MSG_TYPE_IS_SMALL_SCREEN;
+	readonly MSG_TYPE_PRESET: typeof MSG_TYPE_PRESET;
 	readonly MSG_TYPE_REQUEST_HASH: typeof MSG_TYPE_REQUEST_HASH;
 	readonly MSG_TYPE_HASH_REPORT: typeof MSG_TYPE_HASH_REPORT;
 } = Object.assign(
@@ -974,7 +978,7 @@ export const provideWidget: {
 		MSG_PREFIX,
 		MSG_TYPE_READY,
 		MSG_TYPE_OPEN,
-		MSG_TYPE_MAXIMIZE,
+		MSG_TYPE_FULLSCREEN,
 		MSG_TYPE_RESTORE,
 		MSG_TYPE_MAXIMIZE_HEIGHT,
 		MSG_TYPE_MINIMIZE_HEIGHT,
@@ -992,6 +996,7 @@ export const provideWidget: {
 		MSG_TYPE_WIDTH_STATE,
 		MSG_TYPE_DETACHED,
 		MSG_TYPE_IS_SMALL_SCREEN,
+		MSG_TYPE_PRESET,
 		MSG_TYPE_REQUEST_HASH,
 		MSG_TYPE_HASH_REPORT,
 	} as const,

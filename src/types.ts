@@ -7,8 +7,8 @@ export const MSG_PREFIX = "@@__widget_provider__@@";
 export const MSG_TYPE_READY = "__ready";
 /** Request to open/show widget */
 export const MSG_TYPE_OPEN = "__open";
-/** Request fullscreen preset */
-export const MSG_TYPE_MAXIMIZE = "__maximize";
+/** Switch to fullscreen preset */
+export const MSG_TYPE_FULLSCREEN = "__fullscreen";
 /** Restore the initial preset */
 export const MSG_TYPE_RESTORE = "__restore";
 /** Maximize height axis only */
@@ -43,6 +43,8 @@ export const MSG_TYPE_WIDTH_STATE = "__widthState";
 export const MSG_TYPE_DETACHED = "__detached";
 /** Small screen detection (payload: boolean) */
 export const MSG_TYPE_IS_SMALL_SCREEN = "__isSmallScreen";
+/** Current style preset (payload: StylePreset) */
+export const MSG_TYPE_PRESET = "__preset";
 /** Request iframe URL hash (cross-origin protocol) */
 export const MSG_TYPE_REQUEST_HASH = "__requestHash";
 /** Report iframe URL hash (cross-origin protocol) */
@@ -271,7 +273,7 @@ export interface WidgetProviderOptions {
 	placeholder?: boolean | PlaceholderOptions;
 
 	/**
-	 * Viewport width threshold (px) below which `open()` auto-maximizes.
+	 * Viewport width threshold (px) below which `open()` switches to fullscreen.
 	 * Default: 640. Set to 0 to disable.
 	 */
 	smallScreenBreakpoint?: number;
@@ -293,7 +295,7 @@ export interface WidgetState {
 
 /** Control API returned by {@linkcode provideWidget} */
 export interface WidgetProviderApi {
-	/** Show the widget, auto-maximizing if viewport is below smallScreenBreakpoint */
+	/** Show the widget, switching to fullscreen if viewport is below smallScreenBreakpoint */
 	open(): void;
 	/** Show the widget container */
 	show(): void;
@@ -305,9 +307,9 @@ export interface WidgetProviderApi {
 	destroy(): void;
 	/** Switch to a specific style preset at runtime */
 	setPreset(preset: StylePreset): void;
-	/** Shortcut: switch to fullscreen preset */
-	maximize(): void;
-	/** Restore the initial preset (reverse of maximize) */
+	/** Switch to fullscreen preset */
+	fullscreen(): void;
+	/** Restore the initial preset (reverse of fullscreen) */
 	restore(): void;
 	/** Maximize only the widget height, keeping width and horizontal position */
 	maximizeHeight(offset?: number): void;

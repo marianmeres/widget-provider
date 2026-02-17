@@ -160,7 +160,7 @@ interface WidgetProviderOptions {
 	resizable?: boolean | ResizableOptions;
 	/** Placeholder config for detach(). Only relevant for inline preset with parentContainer */
 	placeholder?: boolean | PlaceholderOptions;
-	/** Viewport width threshold (px) below which open() auto-maximizes. Default: 640. Set to 0 to disable */
+	/** Viewport width threshold (px) below which open() auto-fullscreens. Default: 640. Set to 0 to disable */
 	smallScreenBreakpoint?: number;
 }
 ```
@@ -173,14 +173,14 @@ The object returned by `provideWidget()`.
 
 | Method / Property           | Signature                                                         | Description                                                                 |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `open()`                    | `() => void`                                                      | Show and auto-maximize on small screens, or restore on first open           |
+| `open()`                    | `() => void`                                                      | Show and auto-fullscreen on small screens, or restore on first open         |
 | `show()`                    | `() => void`                                                      | Show the widget container                                                   |
 | `hide()`                    | `() => void`                                                      | Hide the widget container                                                   |
 | `toggle()`                  | `() => void`                                                      | Toggle visibility                                                           |
 | `destroy()`                 | `() => void`                                                      | Remove iframe, listeners, DOM elements. Irreversible                        |
 | `setPreset(preset)`         | `(preset: StylePreset) => void`                                   | Switch style preset at runtime                                              |
-| `maximize()`                | `() => void`                                                      | Switch to fullscreen preset                                                 |
-| `restore()`                 | `() => void`                                                      | Restore the initial preset (reverse of maximize)                            |
+| `fullscreen()`              | `() => void`                                                      | Switch to fullscreen preset                                                 |
+| `restore()`                 | `() => void`                                                      | Restore the initial preset (reverse of fullscreen)                          |
 | `maximizeHeight(offset?)`   | `(offset?: number) => void`                                       | Maximize height keeping width/position. No-op when inline                   |
 | `minimizeHeight(height?)`   | `(height?: number) => void`                                       | Collapse to minimal height (default 48px). No-op when inline                |
 | `maximizeWidth(offset?)`    | `(offset?: number) => void`                                       | Maximize width keeping height/position. No-op when inline                   |

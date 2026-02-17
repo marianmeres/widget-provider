@@ -11,13 +11,14 @@ import {
 	MSG_TYPE_HEIGHT_STATE,
 	MSG_TYPE_HIDE,
 	MSG_TYPE_IS_SMALL_SCREEN,
-	MSG_TYPE_MAXIMIZE,
+	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_MAXIMIZE_HEIGHT,
 	MSG_TYPE_MAXIMIZE_WIDTH,
 	MSG_TYPE_MINIMIZE_HEIGHT,
 	MSG_TYPE_MINIMIZE_WIDTH,
 	MSG_TYPE_NATIVE_FULLSCREEN,
 	MSG_TYPE_OPEN,
+	MSG_TYPE_PRESET,
 	MSG_TYPE_READY,
 	MSG_TYPE_REQUEST_HASH,
 	MSG_TYPE_RESET,
@@ -168,7 +169,7 @@ Deno.test("provideWidget exposes all MSG_TYPE_* as static properties", () => {
 	const expected: Record<string, string> = {
 		MSG_TYPE_READY: "__ready",
 		MSG_TYPE_OPEN: "__open",
-		MSG_TYPE_MAXIMIZE: "__maximize",
+		MSG_TYPE_FULLSCREEN: "__fullscreen",
 		MSG_TYPE_RESTORE: "__restore",
 		MSG_TYPE_MAXIMIZE_HEIGHT: "__maximizeHeight",
 		MSG_TYPE_MINIMIZE_HEIGHT: "__minimizeHeight",
@@ -186,6 +187,7 @@ Deno.test("provideWidget exposes all MSG_TYPE_* as static properties", () => {
 		MSG_TYPE_WIDTH_STATE: "__widthState",
 		MSG_TYPE_DETACHED: "__detached",
 		MSG_TYPE_IS_SMALL_SCREEN: "__isSmallScreen",
+		MSG_TYPE_PRESET: "__preset",
 		MSG_TYPE_REQUEST_HASH: "__requestHash",
 		MSG_TYPE_HASH_REPORT: "__hashReport",
 	};
@@ -201,7 +203,7 @@ Deno.test("provideWidget exposes all MSG_TYPE_* as static properties", () => {
 Deno.test("provideWidget static properties match standalone exports", () => {
 	assertEquals(provideWidget.MSG_TYPE_READY, MSG_TYPE_READY);
 	assertEquals(provideWidget.MSG_TYPE_OPEN, MSG_TYPE_OPEN);
-	assertEquals(provideWidget.MSG_TYPE_MAXIMIZE, MSG_TYPE_MAXIMIZE);
+	assertEquals(provideWidget.MSG_TYPE_FULLSCREEN, MSG_TYPE_FULLSCREEN);
 	assertEquals(provideWidget.MSG_TYPE_RESTORE, MSG_TYPE_RESTORE);
 	assertEquals(provideWidget.MSG_TYPE_MAXIMIZE_HEIGHT, MSG_TYPE_MAXIMIZE_HEIGHT);
 	assertEquals(provideWidget.MSG_TYPE_MINIMIZE_HEIGHT, MSG_TYPE_MINIMIZE_HEIGHT);
@@ -222,6 +224,7 @@ Deno.test("provideWidget static properties match standalone exports", () => {
 	assertEquals(provideWidget.MSG_TYPE_WIDTH_STATE, MSG_TYPE_WIDTH_STATE);
 	assertEquals(provideWidget.MSG_TYPE_DETACHED, MSG_TYPE_DETACHED);
 	assertEquals(provideWidget.MSG_TYPE_IS_SMALL_SCREEN, MSG_TYPE_IS_SMALL_SCREEN);
+	assertEquals(provideWidget.MSG_TYPE_PRESET, MSG_TYPE_PRESET);
 	assertEquals(provideWidget.MSG_TYPE_REQUEST_HASH, MSG_TYPE_REQUEST_HASH);
 	assertEquals(provideWidget.MSG_TYPE_HASH_REPORT, MSG_TYPE_HASH_REPORT);
 });
