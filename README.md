@@ -100,7 +100,10 @@ prefix. The iframe can send built-in control messages: `ready`, `open`, `fullscr
 `reset`, `hide`, `destroy`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
 `exitNativeFullscreen`.
 
-The host sends `requestHash` before detach/dock DOM moves. The iframe can
+The host sends state notifications to the iframe on `ready` and whenever values
+change: `preset`, `heightState`, `widthState`, `detached`, `isSmallScreen`.
+
+The host also sends `requestHash` before detach/dock DOM moves. The iframe can
 optionally respond with `hashReport` to preserve hash-based navigation across
 the move (required for cross-origin iframes; same-origin hashes are read directly):
 

@@ -49,19 +49,28 @@ export const STYLE_PRESETS: Record<StylePreset, CSSProps> = {
 
 ### Steps
 
-1. Add `case` to `switch (bareType)` in `handleMessage()` in `src/widget-provider.ts`
-2. Implement handler function if needed
+1. Add `MSG_TYPE_*` constant to `src/types.ts`
+2. Re-export from `src/mod.ts` (both in the const export block and on the `provideWidget` namespace)
+3. Add `case` to `switch (bareType)` in `handleMessage()` in `src/widget-provider.ts`
+4. Implement handler function if needed
 
 ### Template
 
 ```typescript
-case "myControl":
+// src/types.ts
+export const MSG_TYPE_MY_CONTROL = "__myControl";
+
+// src/widget-provider.ts — handleMessage switch
+case MSG_TYPE_MY_CONTROL:
     myControlFunction();
     break;
 ```
 
 ### Checklist
 
+- [ ] Constant added to `src/types.ts`
+- [ ] Re-exported from `src/mod.ts`
+- [ ] Added to `provideWidget` namespace type and assignment in `src/widget-provider.ts`
 - [ ] Case added to switch
 - [ ] Handler implemented
 - [ ] No-op if destroyed

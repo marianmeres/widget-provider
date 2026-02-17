@@ -35,6 +35,13 @@ Built-in control messages (from iframe):
   maximizeWidth, minimizeWidth, reset, hide, destroy, setPreset,
   detach, dock, nativeFullscreen, exitNativeFullscreen
 
+Host → iframe state notifications (sent on ready + on change):
+  preset              — payload: StylePreset (current positioning mode)
+  heightState         — payload: DimensionState
+  widthState          — payload: DimensionState
+  detached            — payload: boolean
+  isSmallScreen       — payload: boolean
+
 Host → iframe protocol messages:
   requestHash         — sent before detach/dock DOM moves to request current hash
 
@@ -59,7 +66,7 @@ Iframe → Host protocol responses (optional):
 | File                     | Purpose                                                               |
 | ------------------------ | --------------------------------------------------------------------- |
 | `src/widget-provider.ts` | `provideWidget()` factory — creates DOM, wires messaging, returns API |
-| `src/types.ts`           | All types, interfaces, `MSG_PREFIX` constant                          |
+| `src/types.ts`           | All types, interfaces, `MSG_PREFIX` and `MSG_TYPE_*` constants        |
 | `src/style-presets.ts`   | CSS preset objects, animation configs, apply functions                |
 | `src/draggable.ts`       | `makeDraggable()` — pointer-event based drag for float containers     |
 | `src/resizable.ts`       | `makeResizable()` — pointer-event based resize for float containers   |

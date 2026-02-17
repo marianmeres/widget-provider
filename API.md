@@ -420,6 +420,53 @@ interface AnimateConfig {
 
 `"@@__widget_provider__@@"` — Namespace prefix for all postMessage types.
 
+### Message Type Constants
+
+All exported as `MSG_TYPE_*` string constants.
+
+**Iframe → Host (built-in control messages):**
+
+| Constant                          | Value                    | Description                                          |
+| --------------------------------- | ------------------------ | ---------------------------------------------------- |
+| `MSG_TYPE_READY`                  | `"__ready"`              | Iframe signals it is ready                           |
+| `MSG_TYPE_OPEN`                   | `"__open"`               | Request to open/show widget                          |
+| `MSG_TYPE_FULLSCREEN`             | `"__fullscreen"`         | Switch to fullscreen preset                          |
+| `MSG_TYPE_RESTORE`                | `"__restore"`            | Restore the initial preset                           |
+| `MSG_TYPE_MAXIMIZE_HEIGHT`        | `"__maximizeHeight"`     | Maximize height axis only                            |
+| `MSG_TYPE_MINIMIZE_HEIGHT`        | `"__minimizeHeight"`     | Minimize height axis only                            |
+| `MSG_TYPE_MAXIMIZE_WIDTH`         | `"__maximizeWidth"`      | Maximize width axis only                             |
+| `MSG_TYPE_MINIMIZE_WIDTH`         | `"__minimizeWidth"`      | Minimize width axis only                             |
+| `MSG_TYPE_RESET`                  | `"__reset"`              | Reset both dimensions to preset defaults             |
+| `MSG_TYPE_HIDE`                   | `"__hide"`               | Hide the widget                                      |
+| `MSG_TYPE_DESTROY`                | `"__destroy"`            | Destroy the widget                                   |
+| `MSG_TYPE_SET_PRESET`             | `"__setPreset"`          | Switch style preset (payload: preset name)           |
+| `MSG_TYPE_DETACH`                 | `"__detach"`             | Detach from parent container                         |
+| `MSG_TYPE_DOCK`                   | `"__dock"`               | Dock back to parent container                        |
+| `MSG_TYPE_NATIVE_FULLSCREEN`      | `"__nativeFullscreen"`   | Request native browser fullscreen                    |
+| `MSG_TYPE_EXIT_NATIVE_FULLSCREEN` | `"__exitNativeFullscreen"` | Exit native browser fullscreen                     |
+
+**Host → Iframe (state notifications, sent on ready + on change):**
+
+| Constant                   | Value               | Payload          | Description                    |
+| -------------------------- | ------------------- | ---------------- | ------------------------------ |
+| `MSG_TYPE_PRESET`          | `"__preset"`        | `StylePreset`    | Current positioning mode       |
+| `MSG_TYPE_HEIGHT_STATE`    | `"__heightState"`   | `DimensionState` | Current height state           |
+| `MSG_TYPE_WIDTH_STATE`     | `"__widthState"`    | `DimensionState` | Current width state            |
+| `MSG_TYPE_DETACHED`        | `"__detached"`      | `boolean`        | Whether widget is detached     |
+| `MSG_TYPE_IS_SMALL_SCREEN` | `"__isSmallScreen"` | `boolean`        | Whether viewport is below breakpoint |
+
+**Host → Iframe (protocol):**
+
+| Constant                | Value              | Description                                       |
+| ----------------------- | ------------------ | ------------------------------------------------- |
+| `MSG_TYPE_REQUEST_HASH` | `"__requestHash"`  | Request iframe URL hash before detach/dock moves   |
+
+**Iframe → Host (protocol response):**
+
+| Constant               | Value             | Description                                       |
+| ---------------------- | ----------------- | ------------------------------------------------- |
+| `MSG_TYPE_HASH_REPORT` | `"__hashReport"`  | Report iframe URL hash (cross-origin preservation) |
+
 ### `STYLE_PRESETS`
 
 `Record<StylePreset, Partial<CSSStyleDeclaration>>` — CSS property objects for each positioning mode.
