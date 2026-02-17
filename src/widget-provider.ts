@@ -943,7 +943,32 @@ function _provideWidget(
 }
 
 /** `provideWidget` with static message-type constants for consumer convenience */
-export const provideWidget = Object.assign(
+export const provideWidget: {
+	(options: WidgetProviderOptions): WidgetProviderApi;
+	readonly MSG_PREFIX: typeof MSG_PREFIX;
+	readonly MSG_TYPE_READY: typeof MSG_TYPE_READY;
+	readonly MSG_TYPE_OPEN: typeof MSG_TYPE_OPEN;
+	readonly MSG_TYPE_MAXIMIZE: typeof MSG_TYPE_MAXIMIZE;
+	readonly MSG_TYPE_RESTORE: typeof MSG_TYPE_RESTORE;
+	readonly MSG_TYPE_MAXIMIZE_HEIGHT: typeof MSG_TYPE_MAXIMIZE_HEIGHT;
+	readonly MSG_TYPE_MINIMIZE_HEIGHT: typeof MSG_TYPE_MINIMIZE_HEIGHT;
+	readonly MSG_TYPE_MAXIMIZE_WIDTH: typeof MSG_TYPE_MAXIMIZE_WIDTH;
+	readonly MSG_TYPE_MINIMIZE_WIDTH: typeof MSG_TYPE_MINIMIZE_WIDTH;
+	readonly MSG_TYPE_RESET: typeof MSG_TYPE_RESET;
+	readonly MSG_TYPE_HIDE: typeof MSG_TYPE_HIDE;
+	readonly MSG_TYPE_DESTROY: typeof MSG_TYPE_DESTROY;
+	readonly MSG_TYPE_SET_PRESET: typeof MSG_TYPE_SET_PRESET;
+	readonly MSG_TYPE_DETACH: typeof MSG_TYPE_DETACH;
+	readonly MSG_TYPE_DOCK: typeof MSG_TYPE_DOCK;
+	readonly MSG_TYPE_NATIVE_FULLSCREEN: typeof MSG_TYPE_NATIVE_FULLSCREEN;
+	readonly MSG_TYPE_EXIT_NATIVE_FULLSCREEN: typeof MSG_TYPE_EXIT_NATIVE_FULLSCREEN;
+	readonly MSG_TYPE_HEIGHT_STATE: typeof MSG_TYPE_HEIGHT_STATE;
+	readonly MSG_TYPE_WIDTH_STATE: typeof MSG_TYPE_WIDTH_STATE;
+	readonly MSG_TYPE_DETACHED: typeof MSG_TYPE_DETACHED;
+	readonly MSG_TYPE_IS_SMALL_SCREEN: typeof MSG_TYPE_IS_SMALL_SCREEN;
+	readonly MSG_TYPE_REQUEST_HASH: typeof MSG_TYPE_REQUEST_HASH;
+	readonly MSG_TYPE_HASH_REPORT: typeof MSG_TYPE_HASH_REPORT;
+} = Object.assign(
 	_provideWidget,
 	{
 		MSG_PREFIX,
