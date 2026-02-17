@@ -1075,6 +1075,38 @@ function provideWidget(options) {
     let placeholderEl = null;
     let originalParent = null;
     let presetBeforeDetach = null;
+    function captureIframeHash() {
+        try {
+            return iframe.contentWindow?.location?.hash ?? "";
+        } catch  {
+            return null;
+        }
+    }
+    function applyHashToSrc(hash) {
+        if (hash) {
+            iframe.src = widgetUrl.split("#")[0] + hash;
+        }
+    }
+    function requestIframeHash(timeoutMs = 50) {
+        return new Promise((resolve)=>{
+            let done = false;
+            const unsub = onMessage("hashReport", (payload)=>{
+                if (!done) {
+                    done = true;
+                    unsub();
+                    resolve(typeof payload === "string" ? payload : "");
+                }
+            });
+            setTimeout(()=>{
+                if (!done) {
+                    done = true;
+                    unsub();
+                    resolve("");
+                }
+            }, timeoutMs);
+            send("requestHash");
+        });
+    }
     const resolvePlaceholderOpts = ()=>typeof options.placeholder === "object" ? options.placeholder : {};
     let draggableHandle = null;
     const resolveDragOpts = ()=>{
@@ -1448,7 +1480,7 @@ function provideWidget(options) {
                 isSmallScreen: s.isSmallScreen
             }));
     }
-    function detach() {
+    async function detach() {
         const s = state.get();
         if (s.destroyed || s.detached) return;
         if (!parentContainer) {
@@ -1474,6 +1506,8 @@ function provideWidget(options) {
             placeholderEl.innerHTML = placeholderOpts.content;
         }
         originalParent.insertBefore(placeholderEl, container);
+        container.style.visibility = "hidden";
+        applyHashToSrc(captureIframeHash() ?? await requestIframeHash());
         document.body.appendChild(container);
         const detachedPreset = state.get().isSmallScreen ? "fullscreen" : "float";
         teardownInteractions();
@@ -1491,11 +1525,13 @@ function provideWidget(options) {
         send("heightState", "normal");
         send("widthState", "normal");
     }
-    function dock() {
+    async function dock() {
         const s = state.get();
         if (s.destroyed || !s.detached) return;
         if (!originalParent || !placeholderEl) return;
         teardownInteractions();
+        container.style.visibility = "hidden";
+        applyHashToSrc(captureIframeHash() ?? await requestIframeHash());
         originalParent.insertBefore(container, placeholderEl);
         placeholderEl.remove();
         placeholderEl = null;

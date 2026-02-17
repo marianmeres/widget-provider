@@ -188,8 +188,8 @@ The object returned by `provideWidget()`.
 | `reset()`                   | `() => void`                                                      | Reset both height and width to current preset's defaults. No-op when inline |
 | `requestNativeFullscreen()` | `() => Promise<void>`                                             | Browser fullscreen for iframe                                               |
 | `exitNativeFullscreen()`    | `() => Promise<void>`                                             | Exit browser fullscreen                                                     |
-| `detach()`                  | `() => void`                                                      | Float an inline widget to document.body, leaving a placeholder. Inline only |
-| `dock()`                    | `() => void`                                                      | Return a detached widget to its original parentContainer                    |
+| `detach()`                  | `() => Promise<void>`                                             | Float an inline widget to document.body, leaving a placeholder. Preserves iframe hash. Inline only |
+| `dock()`                    | `() => Promise<void>`                                             | Return a detached widget to its original parentContainer. Preserves iframe hash                    |
 | `send(type, payload?)`      | `<T>(type: string, payload?: T) => void`                          | Send message to iframe                                                      |
 | `onMessage(type, handler)`  | `<T>(type: string, handler: (payload: T) => void) => Unsubscribe` | Listen for iframe messages                                                  |
 | `subscribe(cb)`             | `(cb: (state: WidgetState) => void) => Unsubscribe`               | Reactive state subscription                                                 |

@@ -35,7 +35,7 @@ Embeds an iframe-based widget into a host page with:
 - Optional trigger button (auto-toggles with widget visibility)
 - Drag-and-drop with edge-snap (float preset only, via handle bar)
 - Free-resize with corner handle (float preset only)
-- Detach/dock workflow (inline preset only — float the widget, leave placeholder)
+- Detach/dock workflow (inline preset only — float the widget, leave placeholder, preserve iframe hash)
 - Small-screen detection with auto-maximize on `open()`
 - Reactive state via `@marianmeres/store` (Svelte-compatible subscribe)
 
@@ -47,6 +47,7 @@ Embeds an iframe-based widget into a host page with:
 4. Use Deno formatting: tabs, 90 char line width (`deno fmt`)
 5. `provideWidget()` is the only user-facing factory — returns `WidgetProviderApi`
 6. Preset-specific guards: actions that don't apply to a preset silently no-op (e.g. dimension actions when inline, detach when not inline, draggable/resizable when not float)
+7. `detach()` and `dock()` are async (`Promise<void>`) — they capture iframe hash before DOM moves via sync read (same-origin) or `requestHash`/`hashReport` postMessage protocol (cross-origin, 50ms timeout)
 
 ## Before Making Changes
 

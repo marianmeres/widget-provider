@@ -278,17 +278,19 @@ export interface WidgetProviderApi {
 	exitNativeFullscreen(): Promise<void>;
 	/**
 	 * Detach an inline widget from its parentContainer and float it on document.body.
-	 * Moves the DOM node (preserving iframe state). Leaves a placeholder in the
-	 * original position. Only works when preset is "inline" and a parentContainer
-	 * exists. No-op if already detached or destroyed.
+	 * Leaves a placeholder in the original position. Preserves the iframe's current
+	 * URL hash across the DOM move (same-origin directly, cross-origin via
+	 * `requestHash`/`hashReport` postMessage protocol). Only works when preset is
+	 * "inline" and a parentContainer exists. No-op if already detached or destroyed.
 	 */
-	detach(): void;
+	detach(): Promise<void>;
 	/**
 	 * Dock a previously detached widget back into its original parentContainer,
-	 * replacing the placeholder. Restores the inline preset. No-op if not
-	 * currently detached or if destroyed.
+	 * replacing the placeholder. Restores the inline preset. Preserves the iframe's
+	 * current URL hash across the DOM move. No-op if not currently detached or
+	 * if destroyed.
 	 */
-	dock(): void;
+	dock(): Promise<void>;
 	/** Send a typed message to the iframe */
 	send<T = unknown>(type: string, payload?: T): void;
 	/** Listen for a typed message from the iframe. Returns unsubscribe. */

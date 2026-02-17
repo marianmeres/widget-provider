@@ -71,6 +71,10 @@ Current guards:
 - **Draggable** → only set up when `preset === "float"`
 - **Resizable** → only set up when `preset === "float"`
 
+### Async DOM Move with Hash Preservation
+
+`detach()` and `dock()` are async (`Promise<void>`) because they capture the iframe's hash before the DOM move. Same-origin hashes are read synchronously; cross-origin uses a `requestHash`/`hashReport` postMessage round-trip with 50ms timeout. Internal callers (e.g. `setPreset`, `handleMessage`) fire-and-forget the returned promise.
+
 ## Anti-Patterns
 
 - Do not create multiple `provideWidget()` instances targeting the same container

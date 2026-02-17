@@ -76,7 +76,9 @@ widget.destroy();
 
 An inline widget can be temporarily detached from its parent container and floated
 on `document.body`, leaving a placeholder behind. Dock returns it to the original
-position.
+position. Both methods are async and preserve the iframe's current URL hash across
+the DOM move (same-origin directly, cross-origin via the `requestHash`/`hashReport`
+postMessage protocol).
 
 ```typescript
 const widget = provideWidget({
@@ -86,8 +88,8 @@ const widget = provideWidget({
 	placeholder: { content: "Widget is floating..." },
 });
 
-widget.detach(); // moves to body, switches to float style
-widget.dock(); // returns to sidebar, restores inline style
+await widget.detach(); // moves to body, switches to float style, preserves hash
+await widget.dock(); // returns to sidebar, restores inline style, preserves hash
 ```
 
 ### Message Protocol
@@ -97,6 +99,23 @@ prefix. The iframe can send built-in control messages: `ready`, `open`, `maximiz
 `minimize`, `maximizeHeight`, `minimizeHeight`, `maximizeWidth`, `minimizeWidth`,
 `reset`, `hide`, `close`, `setPreset`, `detach`, `dock`, `nativeFullscreen`,
 `exitNativeFullscreen`.
+
+The host sends `requestHash` before detach/dock DOM moves. The iframe can
+optionally respond with `hashReport` to preserve hash-based navigation across
+the move (required for cross-origin iframes; same-origin hashes are read directly):
+
+```javascript
+// Iframe-side: opt-in hash preservation for cross-origin
+const PREFIX = "@@__widget_provider__@@";
+window.addEventListener("message", (event) => {
+	if (event.data?.type === PREFIX + "requestHash") {
+		window.parent.postMessage(
+			{ type: PREFIX + "hashReport", payload: location.hash },
+			event.origin,
+		);
+	}
+});
+```
 
 ## API
 

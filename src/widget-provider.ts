@@ -31,8 +31,7 @@ import { createPubSub } from "@marianmeres/pubsub";
 
 const clog = createClog("widget-provider");
 
-const DEFAULT_TRIGGER_ICON =
-	`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 /**
  * Resolve the list of allowed origins for postMessage validation.
@@ -53,10 +52,7 @@ export function resolveAllowedOrigins(
 }
 
 /** Check whether a given origin is permitted by the allowed origins list. */
-export function isOriginAllowed(
-	origin: string,
-	allowed: string[],
-): boolean {
+export function isOriginAllowed(origin: string, allowed: string[]): boolean {
 	if (allowed.includes("*")) return true;
 	return allowed.includes(origin);
 }
@@ -105,8 +101,10 @@ export function provideWidget(
 	const anim = resolveAnimateConfig(options.animate);
 
 	function checkSmallScreen(): boolean {
-		return smallScreenBreakpoint > 0 &&
-			globalThis.innerWidth < smallScreenBreakpoint;
+		return (
+			smallScreenBreakpoint > 0 &&
+			globalThis.innerWidth < smallScreenBreakpoint
+		);
 	}
 
 	// reactive state
@@ -258,22 +256,63 @@ export function provideWidget(
 	let placeholderEl: HTMLElement | null = null;
 	let originalParent: HTMLElement | null = null;
 	let presetBeforeDetach: StylePreset | null = null;
+
+	/** Try to read the iframe's current location hash (null = cross-origin failure). */
+	function captureIframeHash(): string | null {
+		try {
+			return iframe.contentWindow?.location?.hash ?? "";
+		} catch {
+			return null;
+		}
+	}
+
+	/** Update iframe.src to include the given hash so the next reload preserves it. */
+	function applyHashToSrc(hash: string): void {
+		if (hash) {
+			iframe.src = widgetUrl.split("#")[0] + hash;
+		}
+	}
+
+	/** Request hash from cross-origin iframe via postMessage (with timeout fallback). */
+	function requestIframeHash(timeoutMs = 50): Promise<string> {
+		return new Promise((resolve) => {
+			let done = false;
+			const unsub = onMessage<string>("hashReport", (payload) => {
+				if (!done) {
+					done = true;
+					unsub();
+					resolve(typeof payload === "string" ? payload : "");
+				}
+			});
+			setTimeout(() => {
+				if (!done) {
+					done = true;
+					unsub();
+					resolve("");
+				}
+			}, timeoutMs);
+			send("requestHash");
+		});
+	}
+
 	const resolvePlaceholderOpts = (): PlaceholderOptions =>
 		typeof options.placeholder === "object" ? options.placeholder : {};
 
 	// draggable (float only)
 	let draggableHandle: DraggableHandle | null = null;
 	const resolveDragOpts = (): DraggableOptions => {
-		const base: DraggableOptions = typeof options.draggable === "object"
-			? options.draggable
-			: {};
+		const base: DraggableOptions =
+			typeof options.draggable === "object" ? options.draggable : {};
 		return {
 			...base,
 			edgeSnap: base.edgeSnap ?? true,
 			resetSnap: {
 				isActive: () => {
 					const s = state.get();
-					return s.heightState === "maximized" && s.widthState === "maximized";
+					return (
+						s.heightState === "maximized" &&
+						s.widthState === "maximized"
+					);
 				},
 				createGhost: () => {
 					const presetStyle = {
@@ -282,31 +321,34 @@ export function provideWidget(
 					};
 					const rect = container.getBoundingClientRect();
 					const ghost = document.createElement("div");
-					Object.assign(
-						ghost.style,
-						{
-							position: "fixed",
-							boxSizing: "border-box",
-							border: "2px dashed rgba(128, 128, 128, 0.5)",
-							borderRadius: "8px",
-							background: "rgba(128, 128, 128, 0.1)",
-							zIndex: "10001",
-							pointerEvents: "none",
-							transition: "opacity 150ms ease",
-							opacity: "0",
-							top: `${rect.top}px`,
-							left: `${rect.left}px`,
-							width: presetStyle.width ?? "380px",
-							height: presetStyle.height ?? "520px",
-						} satisfies Partial<CSSStyleDeclaration>,
-					);
+					Object.assign(ghost.style, {
+						position: "fixed",
+						boxSizing: "border-box",
+						border: "2px dashed rgba(128, 128, 128, 0.5)",
+						borderRadius: "8px",
+						background: "rgba(128, 128, 128, 0.1)",
+						zIndex: "10001",
+						pointerEvents: "none",
+						transition: "opacity 150ms ease",
+						opacity: "0",
+						top: `${rect.top}px`,
+						left: `${rect.left}px`,
+						width: presetStyle.width ?? "380px",
+						height: presetStyle.height ?? "520px",
+					} satisfies Partial<CSSStyleDeclaration>);
 					return ghost;
 				},
 			},
 			onResetSnap: () => {
 				const s = state.get();
-				if (s.heightState === "maximized" && s.widthState === "maximized") {
-					const presetStyle = { ...STYLE_PRESETS[s.preset], ...styleOverrides };
+				if (
+					s.heightState === "maximized" &&
+					s.widthState === "maximized"
+				) {
+					const presetStyle = {
+						...STYLE_PRESETS[s.preset],
+						...styleOverrides,
+					};
 					container.style.width = presetStyle.width ?? "";
 					container.style.height = presetStyle.height ?? "";
 					clearAxisOverrides();
@@ -353,16 +395,19 @@ export function provideWidget(
 
 	function setupDraggable(): void {
 		if (state.get().preset === "float" && options.draggable) {
-			draggableHandle = makeDraggable(container, iframe, resolveDragOpts());
+			draggableHandle = makeDraggable(
+				container,
+				iframe,
+				resolveDragOpts(),
+			);
 		}
 	}
 
 	// resizable (float only)
 	let resizableHandle: ResizableHandle | null = null;
 	const resolveResizeOpts = (): ResizableOptions => {
-		const base: ResizableOptions = typeof options.resizable === "object"
-			? options.resizable
-			: {};
+		const base: ResizableOptions =
+			typeof options.resizable === "object" ? options.resizable : {};
 		return {
 			...base,
 			onResizeEnd: () => {
@@ -390,7 +435,11 @@ export function provideWidget(
 
 	function setupResizable(): void {
 		if (state.get().preset === "float" && options.resizable) {
-			resizableHandle = makeResizable(container, iframe, resolveResizeOpts());
+			resizableHandle = makeResizable(
+				container,
+				iframe,
+				resolveResizeOpts(),
+			);
 		}
 	}
 
@@ -450,7 +499,11 @@ export function provideWidget(
 	): void {
 		const preset = presetOverride ?? state.get().preset;
 		container.style.cssText = "";
-		applyPreset(container, preset, preset === initialPreset ? styleOverrides : {});
+		applyPreset(
+			container,
+			preset,
+			preset === initialPreset ? styleOverrides : {},
+		);
 		if (anim) {
 			container.style.transition = anim.transition;
 		}
@@ -494,8 +547,8 @@ export function provideWidget(
 				o = 20;
 			} else {
 				const startDist = axis === "height" ? rect.top : rect.left;
-				const endDist = vs -
-					(axis === "height" ? rect.bottom : rect.right);
+				const endDist =
+					vs - (axis === "height" ? rect.bottom : rect.right);
 				o = Math.max(0, Math.min(startDist, endDist));
 			}
 		}
@@ -543,9 +596,10 @@ export function provideWidget(
 		if (typeof triggerOpts === "object" && triggerOpts.style) {
 			Object.assign(triggerEl.style, triggerOpts.style);
 		}
-		const content = typeof triggerOpts === "object" && triggerOpts.content
-			? triggerOpts.content
-			: DEFAULT_TRIGGER_ICON;
+		const content =
+			typeof triggerOpts === "object" && triggerOpts.content
+				? triggerOpts.content
+				: DEFAULT_TRIGGER_ICON;
 		triggerEl.innerHTML = content;
 		if (visible) {
 			triggerEl.style.display = "none";
@@ -692,7 +746,7 @@ export function provideWidget(
 		}));
 	}
 
-	function detach(): void {
+	async function detach(): Promise<void> {
 		const s = state.get();
 		if (s.destroyed || s.detached) return;
 
@@ -731,13 +785,20 @@ export function provideWidget(
 		// Insert placeholder in the original position
 		originalParent.insertBefore(placeholderEl, container);
 
-		// Move the container to document.body (preserves iframe state!)
+		// Hide during async hash capture to prevent visual blink
+		// (resetToPreset below clears cssText, restoring visibility)
+		container.style.visibility = "hidden";
+
+		// Preserve iframe hash before DOM move (reparenting reloads the iframe)
+		applyHashToSrc(captureIframeHash() ?? (await requestIframeHash()));
+
+		// Move the container to document.body
 		document.body.appendChild(container);
 
 		// Switch visual style: fullscreen on small screens, float otherwise
 		const detachedPreset = state.get().isSmallScreen
-			? "fullscreen" as StylePreset
-			: "float" as StylePreset;
+			? ("fullscreen" as StylePreset)
+			: ("float" as StylePreset);
 		teardownInteractions();
 		clearAxisOverrides();
 		resetToPreset(detachedPreset);
@@ -758,12 +819,19 @@ export function provideWidget(
 		send("widthState", "normal");
 	}
 
-	function dock(): void {
+	async function dock(): Promise<void> {
 		const s = state.get();
 		if (s.destroyed || !s.detached) return;
 		if (!originalParent || !placeholderEl) return;
 
 		teardownInteractions();
+
+		// Hide during async hash capture to prevent visual blink
+		// (resetToPreset below clears cssText, restoring visibility)
+		container.style.visibility = "hidden";
+
+		// Preserve iframe hash before DOM move (moving reloads the iframe)
+		applyHashToSrc(captureIframeHash() ?? (await requestIframeHash()));
 
 		// Move container back to original parent, replacing placeholder
 		originalParent.insertBefore(container, placeholderEl);
@@ -808,10 +876,7 @@ export function provideWidget(
 		handler: MessageHandler<T>,
 	): Unsubscribe {
 		const prefixedType = `${MSG_PREFIX}${type}`;
-		return pubsub.subscribe(
-			prefixedType,
-			handler as MessageHandler,
-		);
+		return pubsub.subscribe(prefixedType, handler as MessageHandler);
 	}
 
 	return {

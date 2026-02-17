@@ -34,6 +34,12 @@ Built-in control messages (from iframe):
   ready, open, maximize, minimize, maximizeHeight, minimizeHeight,
   maximizeWidth, minimizeWidth, reset, hide, close, setPreset,
   detach, dock, nativeFullscreen, exitNativeFullscreen
+
+Host → iframe protocol messages:
+  requestHash         — sent before detach/dock DOM moves to request current hash
+
+Iframe → Host protocol responses (optional):
+  hashReport          — payload: location.hash (enables cross-origin hash preservation)
 ```
 
 ## Preset-specific Behavior

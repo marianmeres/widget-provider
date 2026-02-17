@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -23,6 +23,20 @@
 				overflow: auto;
 			}
 		</style>
+		<script>
+			window.addEventListener("message", (event) => {
+				if (event.data?.type === "@@__widget_provider__@@requestHash") {
+					console.log("reporting hash...");
+					window.parent.postMessage(
+						{
+							type: "@@__widget_provider__@@hashReport",
+							payload: location.hash,
+						},
+						event.origin,
+					);
+				}
+			});
+		</script>
 	</head>
 	<body>
 		<h3>Widget (iframe)</h3>
@@ -51,15 +65,11 @@
 			const log = document.getElementById("log");
 			const heightStateEl = document.getElementById("height-state");
 			const widthStateEl = document.getElementById("width-state");
-			const detachedStateEl = document.getElementById(
-				"detached-state",
-			);
+			const detachedStateEl = document.getElementById("detached-state");
 
 			function addLog(msg) {
 				const div = document.createElement("div");
-				div.textContent = `[${
-					new Date().toLocaleTimeString()
-				}] ${msg}`;
+				div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
 				log.prepend(div);
 			}
 
@@ -71,24 +81,19 @@
 
 				const type = data.type.slice(PREFIX.length);
 				addLog(
-					`Received: ${type} ${
-						JSON.stringify(data.payload ?? "")
-					}`,
+					`Received: ${type} ${JSON.stringify(data.payload ?? "")}`,
 				);
 
 				if (type === "heightState") {
-					heightStateEl.textContent =
-						`heightState: ${data.payload}`;
+					heightStateEl.textContent = `heightState: ${data.payload}`;
 				}
 
 				if (type === "widthState") {
-					widthStateEl.textContent =
-						`widthState: ${data.payload}`;
+					widthStateEl.textContent = `widthState: ${data.payload}`;
 				}
 
 				if (type === "detached") {
-					detachedStateEl.textContent =
-						`detached: ${data.payload}`;
+					detachedStateEl.textContent = `detached: ${data.payload}`;
 				}
 
 				// Echo back
@@ -131,28 +136,16 @@
 				.addEventListener("click", () => sendControl("minimize"));
 			document
 				.getElementById("btn-max-height")
-				.addEventListener(
-					"click",
-					() => sendControl("maximizeHeight"),
-				);
+				.addEventListener("click", () => sendControl("maximizeHeight"));
 			document
 				.getElementById("btn-min-height")
-				.addEventListener(
-					"click",
-					() => sendControl("minimizeHeight"),
-				);
+				.addEventListener("click", () => sendControl("minimizeHeight"));
 			document
 				.getElementById("btn-max-width")
-				.addEventListener(
-					"click",
-					() => sendControl("maximizeWidth"),
-				);
+				.addEventListener("click", () => sendControl("maximizeWidth"));
 			document
 				.getElementById("btn-min-width")
-				.addEventListener(
-					"click",
-					() => sendControl("minimizeWidth"),
-				);
+				.addEventListener("click", () => sendControl("minimizeWidth"));
 			document
 				.getElementById("btn-reset")
 				.addEventListener("click", () => sendControl("reset"));
