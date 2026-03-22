@@ -1,0 +1,1 @@
+Embeds an iframe-based widget into a host page with style presets (float, fullscreen, inline), postMessage communication, show/hide animations, drag-and-drop, resize, detach/dock workflow, and reactive state via @marianmeres/store. The main API is provideWidget() which returns a WidgetProviderApi.
