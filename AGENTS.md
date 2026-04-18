@@ -43,11 +43,15 @@ Embeds an iframe-based widget into a host page with:
 
 1. All message types are prefixed with `MSG_PREFIX` (`@@__widget_provider__@@`)
 2. Types live in `types.ts`, style logic in `style-presets.ts`, core logic in `widget-provider.ts`
-3. `mod.ts` is the sole public entry point — all public exports go through it
-4. Use Deno formatting: tabs, 90 char line width (`deno fmt`)
-5. `provideWidget()` is the only user-facing factory — returns `WidgetProviderApi`
-6. Preset-specific guards: actions that don't apply to a preset silently no-op (e.g. dimension actions when inline, detach when not inline, draggable/resizable when not float)
-7. `detach()` and `dock()` are async (`Promise<void>`) — they capture iframe hash before DOM moves via sync read (same-origin) or `requestHash`/`hashReport` postMessage protocol (cross-origin, 50ms timeout)
+3. `mod.ts` is the sole public entry point — all public exports go through it (use `export * from "./types.ts"` for the shared types/consts surface so adding a new constant only requires editing `types.ts`)
+4. `STATIC_PROPS` in `widget-provider.ts` is the single source for `provideWidget.MSG_TYPE_*` convenience attachments — add new constants there as well as in `types.ts`, no separate type expression to maintain
+5. Use Deno formatting: tabs, 90 char line width (`deno fmt`)
+6. `provideWidget()` is the only user-facing factory — returns `WidgetProviderApi`
+7. Preset-specific guards: actions that don't apply to a preset silently no-op (e.g. dimension actions when inline, detach when not inline, draggable/resizable when not float). Guards `clog.warn` the no-op reason so consumers can debug
+8. `detach()` and `dock()` are async (`Promise<void>`) — they capture iframe URL before DOM moves: same-origin preserves the full `contentWindow.location.href`; cross-origin falls back to hash-only via `requestHash`/`hashReport` postMessage protocol (50ms timeout). Calls are serialized through an internal promise chain so rapid detach/dock pairs can't interleave
+9. `styleOverrides` is applied on every `applyPreset` call (including runtime `setPreset` switches) — preset-conditional overrides would require a per-preset map
+10. `open()` tracks an internal `smallScreenAutoFullscreen` flag so that a later `open()` on a large viewport only auto-reverts when the prior open() did the auto-switch. Explicit `setPreset/fullscreen/restore` calls clear the flag
+11. On drag end + resize end, current container geometry is captured into `heightOverrides`/`widthOverrides` (axes whose state is `"normal"`). This lets `resetToPreset` reapply user geometry when the other axis is being changed — a plain `maximizeHeight()` no longer clobbers a dragged/resized width
 
 ## Before Making Changes
 

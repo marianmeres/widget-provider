@@ -128,6 +128,29 @@ Resolve animation option into a concrete `AnimateConfig` or `null`.
 
 ---
 
+### `parseTransitionMs(transition, fallbackMs?)`
+
+Parse the first duration (`ms` or `s`) from a CSS transition shorthand string. Used
+internally so the `hide()` animation cleanup timeout tracks the configured `transition`
+duration even when the consumer overrides the default.
+
+**Parameters:**
+
+- `transition` (`string`) — CSS transition shorthand (e.g. `"opacity 300ms ease"`)
+- `fallbackMs` (`number`, optional, default `250`) — Returned when no duration can be parsed
+
+**Returns:** `number` — milliseconds
+
+**Example:**
+
+```typescript
+parseTransitionMs("opacity 300ms ease, transform 1s linear"); // => 300
+parseTransitionMs("all 0.5s linear"); // => 500
+parseTransitionMs("ease"); // => 250 (fallback)
+```
+
+---
+
 ## Types
 
 ### `WidgetProviderOptions`
@@ -171,33 +194,33 @@ interface WidgetProviderOptions {
 
 The object returned by `provideWidget()`.
 
-| Method / Property           | Signature                                                         | Description                                                                 |
-| --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `open()`                    | `() => void`                                                      | Show and auto-fullscreen on small screens, or restore on first open         |
-| `show()`                    | `() => void`                                                      | Show the widget container                                                   |
-| `hide()`                    | `() => void`                                                      | Hide the widget container                                                   |
-| `toggle()`                  | `() => void`                                                      | Toggle visibility                                                           |
-| `destroy()`                 | `() => void`                                                      | Remove iframe, listeners, DOM elements. Irreversible                        |
-| `setPreset(preset)`         | `(preset: StylePreset) => void`                                   | Switch style preset at runtime                                              |
-| `fullscreen()`              | `() => void`                                                      | Switch to fullscreen preset                                                 |
-| `restore()`                 | `() => void`                                                      | Restore the initial preset (reverse of fullscreen)                          |
-| `maximizeHeight(offset?)`   | `(offset?: number) => void`                                       | Maximize height keeping width/position. No-op when inline                   |
-| `minimizeHeight(height?)`   | `(height?: number) => void`                                       | Collapse to minimal height (default 48px). No-op when inline                |
-| `maximizeWidth(offset?)`    | `(offset?: number) => void`                                       | Maximize width keeping height/position. No-op when inline                   |
-| `minimizeWidth(width?)`     | `(width?: number) => void`                                        | Collapse to minimal width (default 48px). No-op when inline                 |
-| `reset()`                   | `() => void`                                                      | Reset both height and width to current preset's defaults. No-op when inline |
-| `requestNativeFullscreen()` | `() => Promise<void>`                                             | Browser fullscreen for iframe                                               |
-| `exitNativeFullscreen()`    | `() => Promise<void>`                                             | Exit browser fullscreen                                                     |
-| `detach()`                  | `() => Promise<void>`                                             | Float an inline widget to document.body, leaving a placeholder. Preserves iframe hash. Inline only |
-| `dock()`                    | `() => Promise<void>`                                             | Return a detached widget to its original parentContainer. Preserves iframe hash                    |
-| `send(type, payload?)`      | `<T>(type: string, payload?: T) => void`                          | Send message to iframe                                                      |
-| `onMessage(type, handler)`  | `<T>(type: string, handler: (payload: T) => void) => Unsubscribe` | Listen for iframe messages                                                  |
-| `subscribe(cb)`             | `(cb: (state: WidgetState) => void) => Unsubscribe`               | Reactive state subscription                                                 |
-| `get()`                     | `() => WidgetState`                                               | Get current state snapshot                                                  |
-| `iframe`                    | `readonly HTMLIFrameElement`                                      | Direct iframe element reference                                             |
-| `container`                 | `readonly HTMLElement`                                            | Direct container div reference                                              |
-| `trigger`                   | `readonly HTMLElement \| null`                                    | Trigger button reference, or null                                           |
-| `placeholder`               | `readonly HTMLElement \| null`                                    | Placeholder element reference (only present while detached), or null        |
+| Method / Property           | Signature                                                         | Description                                                                                                                                                                                                                                          |
+| --------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open()`                    | `() => void`                                                      | Show; auto-fullscreen when viewport is below `smallScreenBreakpoint`. On a large viewport only reverts to the initial preset if a _prior_ `open()` did the auto-switch (any explicit `setPreset/fullscreen/restore` in between clears that tracking) |
+| `show()`                    | `() => void`                                                      | Show the widget container                                                                                                                                                                                                                            |
+| `hide()`                    | `() => void`                                                      | Hide the widget container                                                                                                                                                                                                                            |
+| `toggle()`                  | `() => void`                                                      | Toggle visibility                                                                                                                                                                                                                                    |
+| `destroy()`                 | `() => void`                                                      | Remove iframe, listeners, DOM elements. Irreversible                                                                                                                                                                                                 |
+| `setPreset(preset)`         | `(preset: StylePreset) => void`                                   | Switch style preset at runtime                                                                                                                                                                                                                       |
+| `fullscreen()`              | `() => void`                                                      | Switch to fullscreen preset                                                                                                                                                                                                                          |
+| `restore()`                 | `() => void`                                                      | Restore the initial preset (reverse of fullscreen)                                                                                                                                                                                                   |
+| `maximizeHeight(offset?)`   | `(offset?: number) => void`                                       | Maximize height keeping width/position. No-op when inline                                                                                                                                                                                            |
+| `minimizeHeight(height?)`   | `(height?: number) => void`                                       | Collapse to minimal height (default 48px). No-op when inline                                                                                                                                                                                         |
+| `maximizeWidth(offset?)`    | `(offset?: number) => void`                                       | Maximize width keeping height/position. No-op when inline                                                                                                                                                                                            |
+| `minimizeWidth(width?)`     | `(width?: number) => void`                                        | Collapse to minimal width (default 48px). No-op when inline                                                                                                                                                                                          |
+| `reset()`                   | `() => void`                                                      | Reset both height and width to current preset's defaults. No-op when inline                                                                                                                                                                          |
+| `requestNativeFullscreen()` | `() => Promise<void>`                                             | Browser fullscreen for iframe                                                                                                                                                                                                                        |
+| `exitNativeFullscreen()`    | `() => Promise<void>`                                             | Exit browser fullscreen                                                                                                                                                                                                                              |
+| `detach()`                  | `() => Promise<void>`                                             | Float an inline widget to document.body, leaving a placeholder. Preserves iframe hash. Inline only                                                                                                                                                   |
+| `dock()`                    | `() => Promise<void>`                                             | Return a detached widget to its original parentContainer. Preserves iframe hash                                                                                                                                                                      |
+| `send(type, payload?)`      | `<T>(type: string, payload?: T) => void`                          | Send message to iframe                                                                                                                                                                                                                               |
+| `onMessage(type, handler)`  | `<T>(type: string, handler: (payload: T) => void) => Unsubscribe` | Listen for iframe messages                                                                                                                                                                                                                           |
+| `subscribe(cb)`             | `(cb: (state: WidgetState) => void) => Unsubscribe`               | Reactive state subscription                                                                                                                                                                                                                          |
+| `get()`                     | `() => WidgetState`                                               | Get current state snapshot                                                                                                                                                                                                                           |
+| `iframe`                    | `readonly HTMLIFrameElement`                                      | Direct iframe element reference                                                                                                                                                                                                                      |
+| `container`                 | `readonly HTMLElement`                                            | Direct container div reference                                                                                                                                                                                                                       |
+| `trigger`                   | `readonly HTMLElement \| null`                                    | Trigger button reference, or null                                                                                                                                                                                                                    |
+| `placeholder`               | `readonly HTMLElement \| null`                                    | Placeholder element reference (only present while detached), or null                                                                                                                                                                                 |
 
 ---
 
@@ -258,15 +281,33 @@ interface DraggableOptions {
 	edgeSnap?: boolean | EdgeSnapOptions;
 	/** Called when pointer is released while the edge-snap ghost is showing */
 	onEdgeSnap?: (edge: SnapEdge) => void;
-	/** Reset-snap: shows a ghost and resets dimensions when dragging away from edges */
+	/**
+	 * Reset-snap: shows a ghost and resets dimensions when dragging away from edges.
+	 * `createGhost` must NOT append the returned element — the caller appends it.
+	 */
 	resetSnap?: {
 		isActive: () => boolean;
 		createGhost: () => HTMLElement;
 	};
 	/** Called when pointer is released while the reset-snap ghost is showing */
 	onResetSnap?: () => void;
+	/** Called once when a drag interaction starts (pointerdown on the handle) */
+	onDragStart?: () => void;
+	/**
+	 * Called when a drag interaction ends (pointerup/pointercancel). Fires for every
+	 * release — including edge-snap and reset-snap releases.
+	 */
+	onDragEnd?: () => void;
 }
 ```
+
+> **Note:** When used standalone (not via `provideWidget`), user-supplied
+> `resetSnap` / `onResetSnap` / `onEdgeSnap` / `onDragEnd` are respected in full.
+> When used via `provideWidget`, any of these left `undefined` are filled in with
+> sensible defaults (reset-snap active when both axes are maximized, edge-snap
+> dispatches to `maximizeHeight/maximizeWidth`, `onDragEnd` also runs an internal
+> `captureUserGeometry` so user drag position survives subsequent axis actions).
+> Callbacks you do supply are preserved alongside the internal capture.
 
 ---
 
@@ -360,7 +401,10 @@ interface ResizableHandle {
 interface PlaceholderOptions {
 	/** CSS overrides for the placeholder div */
 	style?: Partial<CSSStyleDeclaration>;
-	/** HTML content inside the placeholder (e.g., informational text) */
+	/**
+	 * HTML content inside the placeholder, assigned via `innerHTML`.
+	 * WARNING: treat as trusted HTML — never interpolate untrusted input.
+	 */
 	content?: string;
 }
 ```
@@ -426,46 +470,46 @@ All exported as `MSG_TYPE_*` string constants.
 
 **Iframe → Host (built-in control messages):**
 
-| Constant                          | Value                    | Description                                          |
-| --------------------------------- | ------------------------ | ---------------------------------------------------- |
-| `MSG_TYPE_READY`                  | `"__ready"`              | Iframe signals it is ready                           |
-| `MSG_TYPE_OPEN`                   | `"__open"`               | Request to open/show widget                          |
-| `MSG_TYPE_FULLSCREEN`             | `"__fullscreen"`         | Switch to fullscreen preset                          |
-| `MSG_TYPE_RESTORE`                | `"__restore"`            | Restore the initial preset                           |
-| `MSG_TYPE_MAXIMIZE_HEIGHT`        | `"__maximizeHeight"`     | Maximize height axis only                            |
-| `MSG_TYPE_MINIMIZE_HEIGHT`        | `"__minimizeHeight"`     | Minimize height axis only                            |
-| `MSG_TYPE_MAXIMIZE_WIDTH`         | `"__maximizeWidth"`      | Maximize width axis only                             |
-| `MSG_TYPE_MINIMIZE_WIDTH`         | `"__minimizeWidth"`      | Minimize width axis only                             |
-| `MSG_TYPE_RESET`                  | `"__reset"`              | Reset both dimensions to preset defaults             |
-| `MSG_TYPE_HIDE`                   | `"__hide"`               | Hide the widget                                      |
-| `MSG_TYPE_DESTROY`                | `"__destroy"`            | Destroy the widget                                   |
-| `MSG_TYPE_SET_PRESET`             | `"__setPreset"`          | Switch style preset (payload: preset name)           |
-| `MSG_TYPE_DETACH`                 | `"__detach"`             | Detach from parent container                         |
-| `MSG_TYPE_DOCK`                   | `"__dock"`               | Dock back to parent container                        |
-| `MSG_TYPE_NATIVE_FULLSCREEN`      | `"__nativeFullscreen"`   | Request native browser fullscreen                    |
-| `MSG_TYPE_EXIT_NATIVE_FULLSCREEN` | `"__exitNativeFullscreen"` | Exit native browser fullscreen                     |
+| Constant                          | Value                      | Description                                |
+| --------------------------------- | -------------------------- | ------------------------------------------ |
+| `MSG_TYPE_READY`                  | `"__ready"`                | Iframe signals it is ready                 |
+| `MSG_TYPE_OPEN`                   | `"__open"`                 | Request to open/show widget                |
+| `MSG_TYPE_FULLSCREEN`             | `"__fullscreen"`           | Switch to fullscreen preset                |
+| `MSG_TYPE_RESTORE`                | `"__restore"`              | Restore the initial preset                 |
+| `MSG_TYPE_MAXIMIZE_HEIGHT`        | `"__maximizeHeight"`       | Maximize height axis only                  |
+| `MSG_TYPE_MINIMIZE_HEIGHT`        | `"__minimizeHeight"`       | Minimize height axis only                  |
+| `MSG_TYPE_MAXIMIZE_WIDTH`         | `"__maximizeWidth"`        | Maximize width axis only                   |
+| `MSG_TYPE_MINIMIZE_WIDTH`         | `"__minimizeWidth"`        | Minimize width axis only                   |
+| `MSG_TYPE_RESET`                  | `"__reset"`                | Reset both dimensions to preset defaults   |
+| `MSG_TYPE_HIDE`                   | `"__hide"`                 | Hide the widget                            |
+| `MSG_TYPE_DESTROY`                | `"__destroy"`              | Destroy the widget                         |
+| `MSG_TYPE_SET_PRESET`             | `"__setPreset"`            | Switch style preset (payload: preset name) |
+| `MSG_TYPE_DETACH`                 | `"__detach"`               | Detach from parent container               |
+| `MSG_TYPE_DOCK`                   | `"__dock"`                 | Dock back to parent container              |
+| `MSG_TYPE_NATIVE_FULLSCREEN`      | `"__nativeFullscreen"`     | Request native browser fullscreen          |
+| `MSG_TYPE_EXIT_NATIVE_FULLSCREEN` | `"__exitNativeFullscreen"` | Exit native browser fullscreen             |
 
 **Host → Iframe (state notifications, sent on ready + on change):**
 
-| Constant                   | Value               | Payload          | Description                    |
-| -------------------------- | ------------------- | ---------------- | ------------------------------ |
-| `MSG_TYPE_PRESET`          | `"__preset"`        | `StylePreset`    | Current positioning mode       |
-| `MSG_TYPE_HEIGHT_STATE`    | `"__heightState"`   | `DimensionState` | Current height state           |
-| `MSG_TYPE_WIDTH_STATE`     | `"__widthState"`    | `DimensionState` | Current width state            |
-| `MSG_TYPE_DETACHED`        | `"__detached"`      | `boolean`        | Whether widget is detached     |
+| Constant                   | Value               | Payload          | Description                          |
+| -------------------------- | ------------------- | ---------------- | ------------------------------------ |
+| `MSG_TYPE_PRESET`          | `"__preset"`        | `StylePreset`    | Current positioning mode             |
+| `MSG_TYPE_HEIGHT_STATE`    | `"__heightState"`   | `DimensionState` | Current height state                 |
+| `MSG_TYPE_WIDTH_STATE`     | `"__widthState"`    | `DimensionState` | Current width state                  |
+| `MSG_TYPE_DETACHED`        | `"__detached"`      | `boolean`        | Whether widget is detached           |
 | `MSG_TYPE_IS_SMALL_SCREEN` | `"__isSmallScreen"` | `boolean`        | Whether viewport is below breakpoint |
 
 **Host → Iframe (protocol):**
 
-| Constant                | Value              | Description                                       |
-| ----------------------- | ------------------ | ------------------------------------------------- |
-| `MSG_TYPE_REQUEST_HASH` | `"__requestHash"`  | Request iframe URL hash before detach/dock moves   |
+| Constant                | Value             | Description                                      |
+| ----------------------- | ----------------- | ------------------------------------------------ |
+| `MSG_TYPE_REQUEST_HASH` | `"__requestHash"` | Request iframe URL hash before detach/dock moves |
 
 **Iframe → Host (protocol response):**
 
-| Constant               | Value             | Description                                       |
-| ---------------------- | ----------------- | ------------------------------------------------- |
-| `MSG_TYPE_HASH_REPORT` | `"__hashReport"`  | Report iframe URL hash (cross-origin preservation) |
+| Constant               | Value            | Description                                        |
+| ---------------------- | ---------------- | -------------------------------------------------- |
+| `MSG_TYPE_HASH_REPORT` | `"__hashReport"` | Report iframe URL hash (cross-origin preservation) |
 
 ### `STYLE_PRESETS`
 
@@ -482,3 +526,7 @@ All exported as `MSG_TYPE_*` string constants.
 ### `PLACEHOLDER_BASE`
 
 `Partial<CSSStyleDeclaration>` — Default CSS for the detach placeholder element (dashed border, centered content).
+
+### `GHOST_BASE`
+
+`Partial<CSSStyleDeclaration>` — Shared base styles for edge-snap and reset-snap ghost previews (dashed gray box, fades in). Spread this into a custom `resetSnap.createGhost` for visual consistency with the built-in edge-snap ghost.

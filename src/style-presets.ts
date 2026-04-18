@@ -111,6 +111,22 @@ export const PLACEHOLDER_BASE: CSSProps = {
 };
 
 /**
+ * Shared base CSS for edge-snap / reset-snap ghost preview elements.
+ * Consumers supplying their own `resetSnap.createGhost` can spread this
+ * for visual consistency.
+ */
+export const GHOST_BASE: CSSProps = {
+	position: "fixed",
+	boxSizing: "border-box",
+	border: "2px dashed rgba(128, 128, 128, 0.5)",
+	borderRadius: "8px",
+	background: "rgba(128, 128, 128, 0.1)",
+	pointerEvents: "none",
+	transition: "opacity 150ms ease",
+	opacity: "0",
+};
+
+/**
  * Apply a style preset (and optional overrides) to the widget container element.
  *
  * @throws {Error} If the preset name is not recognized.

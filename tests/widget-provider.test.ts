@@ -1,5 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+	ANIMATE_PRESETS,
+	GHOST_BASE,
 	isOriginAllowed,
 	MSG_PREFIX,
 	MSG_TYPE_DESTROY,
@@ -7,11 +9,11 @@ import {
 	MSG_TYPE_DETACHED,
 	MSG_TYPE_DOCK,
 	MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_HASH_REPORT,
 	MSG_TYPE_HEIGHT_STATE,
 	MSG_TYPE_HIDE,
 	MSG_TYPE_IS_SMALL_SCREEN,
-	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_MAXIMIZE_HEIGHT,
 	MSG_TYPE_MAXIMIZE_WIDTH,
 	MSG_TYPE_MINIMIZE_HEIGHT,
@@ -25,8 +27,10 @@ import {
 	MSG_TYPE_RESTORE,
 	MSG_TYPE_SET_PRESET,
 	MSG_TYPE_WIDTH_STATE,
+	parseTransitionMs,
 	provideWidget,
 	resolveAllowedOrigins,
+	resolveAnimateConfig,
 	resolveEdge,
 	STYLE_PRESETS,
 } from "../src/mod.ts";
@@ -199,6 +203,94 @@ Deno.test("provideWidget exposes all MSG_TYPE_* as static properties", () => {
 		);
 	}
 });
+
+// --- resolveAnimateConfig ---
+
+Deno.test("resolveAnimateConfig: falsy returns null", () => {
+	assertEquals(resolveAnimateConfig(undefined), null);
+	assertEquals(resolveAnimateConfig(false), null);
+});
+
+Deno.test("resolveAnimateConfig: true returns default fade-scale preset", () => {
+	const cfg = resolveAnimateConfig(true);
+	assertEquals(cfg, ANIMATE_PRESETS["fade-scale"]);
+});
+
+Deno.test("resolveAnimateConfig: string preset name", () => {
+	assertEquals(resolveAnimateConfig("slide-up"), ANIMATE_PRESETS["slide-up"]);
+});
+
+Deno.test("resolveAnimateConfig: unknown string returns null", () => {
+	// deno-lint-ignore no-explicit-any
+	assertEquals(resolveAnimateConfig("nope" as any), null);
+});
+
+Deno.test("resolveAnimateConfig: object with preset only uses preset defaults", () => {
+	assertEquals(
+		resolveAnimateConfig({ preset: "slide-up" }),
+		ANIMATE_PRESETS["slide-up"],
+	);
+});
+
+Deno.test("resolveAnimateConfig: object with transition override merges", () => {
+	const cfg = resolveAnimateConfig({
+		preset: "fade-scale",
+		transition: "all 500ms linear",
+	});
+	assertEquals(cfg?.transition, "all 500ms linear");
+	assertEquals(cfg?.hidden, ANIMATE_PRESETS["fade-scale"].hidden);
+	assertEquals(cfg?.visible, ANIMATE_PRESETS["fade-scale"].visible);
+});
+
+Deno.test("resolveAnimateConfig: object with only transition (no preset) uses fade-scale defaults", () => {
+	const cfg = resolveAnimateConfig({ transition: "opacity 1s" });
+	assertEquals(cfg?.transition, "opacity 1s");
+	assertEquals(cfg?.hidden, ANIMATE_PRESETS["fade-scale"].hidden);
+});
+
+// --- parseTransitionMs ---
+
+Deno.test("parseTransitionMs: parses milliseconds", () => {
+	assertEquals(parseTransitionMs("opacity 200ms ease"), 200);
+});
+
+Deno.test("parseTransitionMs: parses seconds", () => {
+	assertEquals(parseTransitionMs("all 0.5s linear"), 500);
+});
+
+Deno.test("parseTransitionMs: parses integer seconds", () => {
+	assertEquals(parseTransitionMs("transform 2s ease"), 2000);
+});
+
+Deno.test("parseTransitionMs: uses first duration in a multi-property transition", () => {
+	assertEquals(parseTransitionMs("opacity 300ms ease, transform 1s linear"), 300);
+});
+
+Deno.test("parseTransitionMs: no duration returns fallback", () => {
+	assertEquals(parseTransitionMs("ease"), 250);
+	assertEquals(parseTransitionMs("ease", 100), 100);
+});
+
+Deno.test("parseTransitionMs: empty string returns fallback", () => {
+	assertEquals(parseTransitionMs(""), 250);
+});
+
+// --- GHOST_BASE ---
+
+Deno.test("GHOST_BASE has expected core style properties", () => {
+	assertEquals(GHOST_BASE.position, "fixed");
+	assertEquals(GHOST_BASE.pointerEvents, "none");
+	assertEquals(GHOST_BASE.opacity, "0");
+});
+
+// --- provideWidget: widgetUrl required ---
+
+Deno.test("provideWidget throws when widgetUrl is missing", () => {
+	// deno-lint-ignore no-explicit-any
+	assertThrows(() => provideWidget({} as any), Error, "widgetUrl is required");
+});
+
+// --- static properties exhaustiveness ---
 
 Deno.test("provideWidget static properties match standalone exports", () => {
 	assertEquals(provideWidget.MSG_TYPE_READY, MSG_TYPE_READY);

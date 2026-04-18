@@ -50,9 +50,11 @@ export const STYLE_PRESETS: Record<StylePreset, CSSProps> = {
 ### Steps
 
 1. Add `MSG_TYPE_*` constant to `src/types.ts`
-2. Re-export from `src/mod.ts` (both in the const export block and on the `provideWidget` namespace)
-3. Add `case` to `switch (bareType)` in `handleMessage()` in `src/widget-provider.ts`
-4. Implement handler function if needed
+2. `src/mod.ts` uses `export * from "./types.ts"` — no edit needed there
+3. Add the constant to `STATIC_PROPS` in `src/widget-provider.ts` (single source for the `provideWidget.MSG_TYPE_*` static attachment — no separate type expression to maintain)
+4. Import the constant at the top of `src/widget-provider.ts` if the switch uses it
+5. Add `case` to `switch (bareType)` in `handleMessage()` in `src/widget-provider.ts`
+6. Implement handler function if needed (guard `destroyed` early)
 
 ### Template
 
@@ -60,7 +62,14 @@ export const STYLE_PRESETS: Record<StylePreset, CSSProps> = {
 // src/types.ts
 export const MSG_TYPE_MY_CONTROL = "__myControl";
 
-// src/widget-provider.ts — handleMessage switch
+// src/widget-provider.ts — import + STATIC_PROPS + handleMessage switch
+import { /* ..., */ MSG_TYPE_MY_CONTROL } from "./types.ts";
+
+const STATIC_PROPS = {
+	/* ..., */
+	MSG_TYPE_MY_CONTROL,
+} as const;
+
 case MSG_TYPE_MY_CONTROL:
     myControlFunction();
     break;
@@ -69,11 +78,11 @@ case MSG_TYPE_MY_CONTROL:
 ### Checklist
 
 - [ ] Constant added to `src/types.ts`
-- [ ] Re-exported from `src/mod.ts`
-- [ ] Added to `provideWidget` namespace type and assignment in `src/widget-provider.ts`
-- [ ] Case added to switch
-- [ ] Handler implemented
-- [ ] No-op if destroyed
+- [ ] Added to `STATIC_PROPS` in `src/widget-provider.ts`
+- [ ] Imported in the switch file
+- [ ] Case added to `handleMessage` switch
+- [ ] Handler implemented with `destroyed` guard
+- [ ] Test added confirming static property exposure (`provideWidget.MSG_TYPE_MY_CONTROL`)
 
 ## Build and Publish
 

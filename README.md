@@ -76,9 +76,17 @@ widget.destroy();
 
 An inline widget can be temporarily detached from its parent container and floated
 on `document.body`, leaving a placeholder behind. Dock returns it to the original
-position. Both methods are async and preserve the iframe's current URL hash across
-the DOM move (same-origin directly, cross-origin via the `requestHash`/`hashReport`
-postMessage protocol).
+position. Both methods are async and preserve the iframe's current URL across
+the DOM move:
+
+- **Same-origin**: full URL (including any in-iframe navigation) is preserved by
+  reading `contentWindow.location.href`.
+- **Cross-origin**: hash only, via the optional `requestHash`/`hashReport`
+  postMessage protocol. If the iframe doesn't respond within 50ms, the URL is
+  re-set without a hash.
+
+Rapid or interleaved `detach()`/`dock()` calls are serialized through an internal
+promise chain, so they can't corrupt placeholder/parent state.
 
 ```typescript
 const widget = provideWidget({
@@ -88,8 +96,8 @@ const widget = provideWidget({
 	placeholder: { content: "Widget is floating..." },
 });
 
-await widget.detach(); // moves to body, switches to float style, preserves hash
-await widget.dock(); // returns to sidebar, restores inline style, preserves hash
+await widget.detach(); // moves to body, switches to float style, preserves URL
+await widget.dock(); // returns to sidebar, restores inline style, preserves URL
 ```
 
 ### Message Protocol
@@ -103,9 +111,11 @@ prefix. The iframe can send built-in control messages: `ready`, `open`, `fullscr
 The host sends state notifications to the iframe on `ready` and whenever values
 change: `preset`, `heightState`, `widthState`, `detached`, `isSmallScreen`.
 
-The host also sends `requestHash` before detach/dock DOM moves. The iframe can
-optionally respond with `hashReport` to preserve hash-based navigation across
-the move (required for cross-origin iframes; same-origin hashes are read directly):
+The host also sends `requestHash` before detach/dock DOM moves. **Same-origin**
+iframes: the host reads `contentWindow.location.href` synchronously and re-assigns
+the full URL after the DOM move — in-iframe navigation (including subpaths) is
+preserved. **Cross-origin** iframes: the iframe can opt in to hash preservation
+by replying with `hashReport` (preserves only the hash):
 
 ```javascript
 // Iframe-side: opt-in hash preservation for cross-origin
@@ -119,6 +129,20 @@ window.addEventListener("message", (event) => {
 	}
 });
 ```
+
+### Security
+
+- **Always pass an explicit `allowedOrigin`** in production. If the URL parse
+  fails and `allowedOrigin` is omitted, the library falls back to `"*"` and
+  logs a warning — origin validation is effectively disabled in that case.
+- **Sandbox**: Default is `"allow-scripts allow-same-origin"`. When the widget
+  is served from the same origin as the host, `allow-same-origin` lets the
+  iframe script remove its own sandbox attribute — there is effectively no
+  sandbox in that setup. For widgets you don't fully control, either serve from
+  a different origin or drop `allow-same-origin`.
+- **`innerHTML` sinks**: `trigger.content` and `placeholder.content` are
+  assigned via `innerHTML`. Treat them as trusted HTML; never interpolate
+  untrusted input.
 
 ## API
 

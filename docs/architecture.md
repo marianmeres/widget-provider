@@ -85,5 +85,24 @@ Iframe → Host protocol responses (optional):
 ## Security Boundaries
 
 - **Origin validation**: `resolveAllowedOrigins()` derives from `widgetUrl` or uses explicit config. `isOriginAllowed()` checks incoming messages.
-- **Iframe sandbox**: Defaults to `allow-scripts allow-same-origin`. Configurable via `sandbox` option.
+  - Fallback-to-wildcard (invalid URL, no `allowedOrigin`) logs a `clog.warn` on construction — production should always pass an explicit `allowedOrigin`.
+  - `send()` targets the iframe's actual origin once any valid message has been received (remembered from `event.origin`). Before the first message, single-origin configs target that origin; multi-origin configs fall back to the first entry with a one-time warning.
+- **Iframe sandbox**: Defaults to `allow-scripts allow-same-origin`. Note: when `widgetUrl` is same-origin as the host, `allow-same-origin` lets the iframe script remove its own sandbox attribute — effectively no sandbox. Override via `sandbox` option for isolated widgets.
 - **Message namespace**: All messages prefixed with `@@__widget_provider__@@` to avoid collisions.
+- **`innerHTML` sinks**: `trigger.content` and `placeholder.content` are assigned via `innerHTML` — treat them as trusted HTML; never interpolate untrusted data.
+
+## Detach / Dock
+
+- Both `detach()` and `dock()` are serialized through a shared promise chain. Rapid or interleaved calls run in order; each `_detach`/`_dock` body is a no-op if state already matches the target.
+- URL preservation: same-origin uses `iframe.contentWindow.location.href` (preserves full navigation path); cross-origin falls back to the `requestHash`/`hashReport` postMessage protocol (50ms timeout, hash only).
+- `dock()` recovers gracefully if the placeholder was removed by external code between detach and dock: it appends the container to the original parent and logs a warning.
+- `destroy()` nulls `originalParent`, `presetBeforeDetach`, `placeholderEl`, and `triggerEl` after cleanup so detached DOM subtrees can be garbage-collected.
+
+## Axis + Interaction State
+
+Drag and resize interactions update inline CSS directly. To keep that geometry alive across single-axis actions (e.g. `maximizeHeight()` while the widget is dragged to a custom horizontal position), the internal `captureUserGeometry()` runs on drag end and resize end, writing the current `top/left/width/height` into the `heightOverrides`/`widthOverrides` records. `resetToPreset` always re-applies whichever axis isn't being re-maximized — user position survives.
+
+Rules:
+
+- Capture only happens for axes whose state is `"normal"` (maximized/minimized axes keep their recipe-based overrides).
+- `clearAxisOverrides()` runs in `setPreset`, `detach`, `dock`, `reset` — all of which intentionally discard interactive geometry.

@@ -6,6 +6,7 @@ import {
 	type AnimateConfig,
 	applyIframeBaseStyles,
 	applyPreset,
+	GHOST_BASE,
 	PLACEHOLDER_BASE,
 	STYLE_PRESETS,
 	TRIGGER_BASE,
@@ -20,11 +21,11 @@ import {
 	MSG_TYPE_DETACHED,
 	MSG_TYPE_DOCK,
 	MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_HASH_REPORT,
 	MSG_TYPE_HEIGHT_STATE,
 	MSG_TYPE_HIDE,
 	MSG_TYPE_IS_SMALL_SCREEN,
-	MSG_TYPE_FULLSCREEN,
 	MSG_TYPE_MAXIMIZE_HEIGHT,
 	MSG_TYPE_MAXIMIZE_WIDTH,
 	MSG_TYPE_MINIMIZE_HEIGHT,
@@ -57,9 +58,12 @@ const clog = createClog("widget-provider");
 const DEFAULT_TRIGGER_ICON =
 	`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
+const DEFAULT_HIDE_FALLBACK_MS = 250;
+
 /**
  * Resolve the list of allowed origins for postMessage validation.
- * Uses explicit value if provided, otherwise derives from widgetUrl. Falls back to `["*"]`.
+ * Uses explicit value if provided, otherwise derives from widgetUrl. Falls back to `["*"]`
+ * when the URL cannot be parsed.
  */
 export function resolveAllowedOrigins(
 	explicit: string | string[] | undefined,
@@ -94,6 +98,20 @@ export function resolveAnimateConfig(
 }
 
 /**
+ * Parse the first duration (ms or s) from a CSS transition shorthand string.
+ * Returns `fallbackMs` if no duration is found.
+ */
+export function parseTransitionMs(
+	transition: string,
+	fallbackMs = DEFAULT_HIDE_FALLBACK_MS,
+): number {
+	const match = transition.match(/(\d+(?:\.\d+)?)\s*(ms|s)\b/);
+	if (!match) return fallbackMs;
+	const value = parseFloat(match[1]);
+	return match[2] === "s" ? value * 1000 : value;
+}
+
+/**
  * Create and embed an iframe-based widget into the host page.
  *
  * Creates a sandboxed iframe, applies the chosen style preset, wires up
@@ -124,6 +142,14 @@ function _provideWidget(
 	const initialPreset = stylePreset;
 	const anim = resolveAnimateConfig(options.animate);
 
+	// Warn when origin validation effectively disabled due to URL parse failure
+	if (!allowedOrigin && origins[0] === "*") {
+		clog.warn(
+			`Could not derive origin from widgetUrl="${widgetUrl}" — falling back to "*". ` +
+				`This disables origin validation; pass an explicit allowedOrigin for production.`,
+		);
+	}
+
 	function checkSmallScreen(): boolean {
 		return (
 			smallScreenBreakpoint > 0 &&
@@ -142,6 +168,11 @@ function _provideWidget(
 		detached: false,
 		isSmallScreen: checkSmallScreen(),
 	});
+
+	// tracks when open() auto-switched to fullscreen on a small screen; lets a
+	// later open() on a large screen revert to the initial preset without
+	// clobbering an explicit user setPreset() made in between.
+	let smallScreenAutoFullscreen = false;
 
 	// DOM
 	const container = document.createElement("div");
@@ -179,6 +210,11 @@ function _provideWidget(
 		},
 	});
 
+	// remembered origin of the last valid iframe message; used to target send()
+	// correctly when multiple origins are allowed.
+	let lastIframeOrigin: string | null = null;
+	let sendOriginWarned = false;
+
 	function handleMessage(event: MessageEvent): void {
 		if (!isOriginAllowed(event.origin, origins)) return;
 		if (event.source !== iframe.contentWindow) return;
@@ -187,7 +223,10 @@ function _provideWidget(
 		if (!data || typeof data.type !== "string") return;
 		if (!data.type.startsWith(MSG_PREFIX)) return;
 
-		// built-in control messages
+		// remember iframe's actual origin for accurate send() targeting
+		lastIframeOrigin = event.origin;
+
+		// built-in control messages — handlers run BEFORE user onMessage handlers
 		const bareType = data.type.slice(MSG_PREFIX.length);
 		switch (bareType) {
 			case MSG_TYPE_READY:
@@ -282,18 +321,13 @@ function _provideWidget(
 	let originalParent: HTMLElement | null = null;
 	let presetBeforeDetach: StylePreset | null = null;
 
-	/** Try to read the iframe's current location hash (null = cross-origin failure). */
-	function captureIframeHash(): string | null {
+	/** Read the iframe's current full URL (null on cross-origin). */
+	function readSameOriginIframeUrl(): string | null {
 		try {
-			return iframe.contentWindow?.location?.hash ?? "";
+			return iframe.contentWindow?.location?.href ?? null;
 		} catch {
 			return null;
 		}
-	}
-
-	/** Update iframe.src to include the given hash so the next reload preserves it. */
-	function applyHashToSrc(hash: string): void {
-		iframe.src = widgetUrl.split("#")[0] + hash;
 	}
 
 	/** Request hash from cross-origin iframe via postMessage (with timeout fallback). */
@@ -318,8 +352,85 @@ function _provideWidget(
 		});
 	}
 
+	/**
+	 * Capture the URL to reassign iframe.src to around a detach/dock DOM move.
+	 * Same-origin preserves the FULL url (including subpath navigation);
+	 * cross-origin falls back to hash-only preservation via postMessage protocol.
+	 */
+	async function captureIframeUrlForReload(): Promise<string> {
+		const sameOrigin = readSameOriginIframeUrl();
+		if (sameOrigin) return sameOrigin;
+		const hash = await requestIframeHash();
+		return widgetUrl.split("#")[0] + hash;
+	}
+
 	const resolvePlaceholderOpts = (): PlaceholderOptions =>
 		typeof options.placeholder === "object" ? options.placeholder : {};
+
+	// --- Axis dimension control (shared height/width logic) ---
+
+	type Axis = "height" | "width";
+
+	// Remembers CSS overrides per axis so resetToPreset can re-apply whichever
+	// axis is being preserved. Populated by maximizeAxis / minimizeAxis AND by
+	// user drag / resize interactions (so maximizing one axis doesn't blow away
+	// the user's dragged position or resized width on the other axis).
+	let heightOverrides: Record<string, string> | null = null;
+	let widthOverrides: Record<string, string> | null = null;
+
+	const AXIS_CONFIG = {
+		height: {
+			startProp: "top" as const,
+			endProp: "bottom" as const,
+			sizeProp: "height" as const,
+			viewportUnit: "vh",
+			viewportSize: () => globalThis.innerHeight,
+			stateKey: "heightState" as const,
+			msgType: MSG_TYPE_HEIGHT_STATE,
+			getOverrides: () => heightOverrides,
+			setOverrides: (v: Record<string, string> | null) => {
+				heightOverrides = v;
+			},
+		},
+		width: {
+			startProp: "left" as const,
+			endProp: "right" as const,
+			sizeProp: "width" as const,
+			viewportUnit: "vw",
+			viewportSize: () => globalThis.innerWidth,
+			stateKey: "widthState" as const,
+			msgType: MSG_TYPE_WIDTH_STATE,
+			getOverrides: () => widthOverrides,
+			setOverrides: (v: Record<string, string> | null) => {
+				widthOverrides = v;
+			},
+		},
+	};
+
+	/**
+	 * Snapshot the current container geometry into per-axis override records so
+	 * a subsequent resetToPreset reapplies what the user interactively set.
+	 * Only captures axes currently in "normal" state (maximized/minimized states
+	 * are driven by their own recipes).
+	 */
+	function captureUserGeometry(): void {
+		const s = state.get();
+		const rect = container.getBoundingClientRect();
+		if (s.heightState === "normal") {
+			heightOverrides = {
+				top: `${rect.top}px`,
+				bottom: "auto",
+				height: `${rect.height}px`,
+			};
+		}
+		if (s.widthState === "normal") {
+			widthOverrides = {
+				left: `${rect.left}px`,
+				right: "auto",
+				width: `${rect.width}px`,
+			};
+		}
+	}
 
 	// draggable (float only)
 	let draggableHandle: DraggableHandle | null = null;
@@ -327,89 +438,99 @@ function _provideWidget(
 		const base: DraggableOptions = typeof options.draggable === "object"
 			? options.draggable
 			: {};
+
+		const defaultResetSnap = {
+			isActive: () => {
+				const s = state.get();
+				return (
+					s.heightState === "maximized" &&
+					s.widthState === "maximized"
+				);
+			},
+			createGhost: () => {
+				const presetStyle = {
+					...STYLE_PRESETS[state.get().preset],
+					...styleOverrides,
+				};
+				const rect = container.getBoundingClientRect();
+				const ghost = document.createElement("div");
+				Object.assign(
+					ghost.style,
+					GHOST_BASE,
+					{
+						zIndex: "10001",
+						top: `${rect.top}px`,
+						left: `${rect.left}px`,
+						width: presetStyle.width ?? "380px",
+						height: presetStyle.height ?? "520px",
+					} satisfies Partial<CSSStyleDeclaration>,
+				);
+				return ghost;
+			},
+		};
+
+		const defaultOnResetSnap = () => {
+			const s = state.get();
+			if (
+				s.heightState === "maximized" &&
+				s.widthState === "maximized"
+			) {
+				const presetStyle = {
+					...STYLE_PRESETS[s.preset],
+					...styleOverrides,
+				};
+				container.style.width = presetStyle.width ?? "";
+				container.style.height = presetStyle.height ?? "";
+				clearAxisOverrides();
+				state.update((st) => ({
+					...st,
+					heightState: "normal",
+					widthState: "normal",
+				}));
+				send(MSG_TYPE_HEIGHT_STATE, "normal");
+				send(MSG_TYPE_WIDTH_STATE, "normal");
+			}
+		};
+
+		const defaultOnEdgeSnap = (edge: SnapEdge) => {
+			// Capture geometry before maximize (resetToPreset reverts to
+			// preset defaults, losing dragged position and resized dimensions)
+			const rect = container.getBoundingClientRect();
+			if (edge.includes("-")) {
+				// Corner snap — maximize both axes
+				maximizeHeight();
+				maximizeWidth();
+			} else if (edge === "left" || edge === "right") {
+				maximizeHeight();
+				// Preserve horizontal position and width at the snapped edge
+				container.style.left = `${rect.left}px`;
+				container.style.right = "auto";
+				container.style.width = `${rect.width}px`;
+			} else {
+				maximizeWidth();
+				// Preserve vertical position and height at the snapped edge
+				container.style.top = `${rect.top}px`;
+				container.style.bottom = "auto";
+				container.style.height = `${rect.height}px`;
+			}
+		};
+
+		const defaultOnDragEnd = () => {
+			// Preserve drag position so subsequent resetToPreset calls can
+			// restore it from the tracked overrides.
+			captureUserGeometry();
+			base.onDragEnd?.();
+		};
+
 		return {
 			...base,
 			edgeSnap: base.edgeSnap ?? true,
-			resetSnap: {
-				isActive: () => {
-					const s = state.get();
-					return (
-						s.heightState === "maximized" &&
-						s.widthState === "maximized"
-					);
-				},
-				createGhost: () => {
-					const presetStyle = {
-						...STYLE_PRESETS[state.get().preset],
-						...styleOverrides,
-					};
-					const rect = container.getBoundingClientRect();
-					const ghost = document.createElement("div");
-					Object.assign(
-						ghost.style,
-						{
-							position: "fixed",
-							boxSizing: "border-box",
-							border: "2px dashed rgba(128, 128, 128, 0.5)",
-							borderRadius: "8px",
-							background: "rgba(128, 128, 128, 0.1)",
-							zIndex: "10001",
-							pointerEvents: "none",
-							transition: "opacity 150ms ease",
-							opacity: "0",
-							top: `${rect.top}px`,
-							left: `${rect.left}px`,
-							width: presetStyle.width ?? "380px",
-							height: presetStyle.height ?? "520px",
-						} satisfies Partial<CSSStyleDeclaration>,
-					);
-					return ghost;
-				},
-			},
-			onResetSnap: () => {
-				const s = state.get();
-				if (
-					s.heightState === "maximized" &&
-					s.widthState === "maximized"
-				) {
-					const presetStyle = {
-						...STYLE_PRESETS[s.preset],
-						...styleOverrides,
-					};
-					container.style.width = presetStyle.width ?? "";
-					container.style.height = presetStyle.height ?? "";
-					clearAxisOverrides();
-					state.update((st) => ({
-						...st,
-						heightState: "normal",
-						widthState: "normal",
-					}));
-					send(MSG_TYPE_HEIGHT_STATE, "normal");
-					send(MSG_TYPE_WIDTH_STATE, "normal");
-				}
-			},
-			onEdgeSnap: (edge: SnapEdge) => {
-				// Capture geometry before maximize (resetToPreset reverts to
-				// preset defaults, losing dragged position and resized dimensions)
-				const rect = container.getBoundingClientRect();
-				if (edge.includes("-")) {
-					// Corner snap — maximize both axes
-					maximizeHeight();
-					maximizeWidth();
-				} else if (edge === "left" || edge === "right") {
-					maximizeHeight();
-					// Preserve horizontal position and width at the snapped edge
-					container.style.left = `${rect.left}px`;
-					container.style.right = "auto";
-					container.style.width = `${rect.width}px`;
-				} else {
-					maximizeWidth();
-					// Preserve vertical position and height at the snapped edge
-					container.style.top = `${rect.top}px`;
-					container.style.bottom = "auto";
-					container.style.height = `${rect.height}px`;
-				}
-			},
+			resetSnap: base.resetSnap ?? defaultResetSnap,
+			onResetSnap: base.onResetSnap ?? defaultOnResetSnap,
+			onEdgeSnap: base.onEdgeSnap ?? defaultOnEdgeSnap,
+			// captureUserGeometry ALWAYS runs first; user's onDragEnd (if any)
+			// is invoked by defaultOnDragEnd after capture.
+			onDragEnd: defaultOnDragEnd,
 		};
 	};
 
@@ -440,16 +561,24 @@ function _provideWidget(
 			...base,
 			onResizeEnd: () => {
 				const s = state.get();
-				if (s.heightState !== "normal" || s.widthState !== "normal") {
-					clearAxisOverrides();
+				const wasNonNormal = s.heightState !== "normal" ||
+					s.widthState !== "normal";
+				if (wasNonNormal) {
+					// user manually resized — explicit state is now "normal"
 					state.update((st) => ({
 						...st,
 						heightState: "normal",
 						widthState: "normal",
 					}));
+				}
+				// Preserve the resized dimensions so resetToPreset can
+				// restore them on subsequent axis actions.
+				captureUserGeometry();
+				if (wasNonNormal) {
 					send(MSG_TYPE_HEIGHT_STATE, "normal");
 					send(MSG_TYPE_WIDTH_STATE, "normal");
 				}
+				base.onResizeEnd?.();
 			},
 		};
 	};
@@ -484,56 +613,18 @@ function _provideWidget(
 
 	setupInteractions();
 
-	// --- Axis dimension control (shared height/width logic) ---
-
-	type Axis = "height" | "width";
-
-	// Remembers CSS overrides per axis so the other axis can be re-applied
-	// after a full cssText reset
-	let heightOverrides: Record<string, string> | null = null;
-	let widthOverrides: Record<string, string> | null = null;
-
-	const AXIS_CONFIG = {
-		height: {
-			startProp: "top" as const,
-			endProp: "bottom" as const,
-			sizeProp: "height" as const,
-			viewportUnit: "vh",
-			viewportSize: () => globalThis.innerHeight,
-			stateKey: "heightState" as const,
-			msgType: MSG_TYPE_HEIGHT_STATE,
-			getOverrides: () => heightOverrides,
-			setOverrides: (v: Record<string, string> | null) => {
-				heightOverrides = v;
-			},
-		},
-		width: {
-			startProp: "left" as const,
-			endProp: "right" as const,
-			sizeProp: "width" as const,
-			viewportUnit: "vw",
-			viewportSize: () => globalThis.innerWidth,
-			stateKey: "widthState" as const,
-			msgType: MSG_TYPE_WIDTH_STATE,
-			getOverrides: () => widthOverrides,
-			setOverrides: (v: Record<string, string> | null) => {
-				widthOverrides = v;
-			},
-		},
-	};
-
-	/** Reset container CSS to preset baseline, re-applying the other axis's overrides. */
+	/**
+	 * Reset container CSS to preset baseline, re-applying the other axis's
+	 * overrides (which may have been populated by drag/resize as well as by
+	 * maximize/minimize, so user geometry survives single-axis actions).
+	 */
 	function resetToPreset(
 		presetOverride?: StylePreset,
 		skipAxisReapply?: Axis,
 	): void {
 		const preset = presetOverride ?? state.get().preset;
 		container.style.cssText = "";
-		applyPreset(
-			container,
-			preset,
-			preset === initialPreset ? styleOverrides : {},
-		);
+		applyPreset(container, preset, styleOverrides);
 		if (anim) {
 			container.style.transition = anim.transition;
 		}
@@ -560,7 +651,14 @@ function _provideWidget(
 
 	function maximizeAxis(axis: Axis, offset?: number): void {
 		if (state.get().destroyed) return;
-		if (state.get().preset === "inline") return;
+		if (state.get().preset === "inline") {
+			clog.warn(
+				`maximize${
+					axis === "height" ? "Height" : "Width"
+				}() is a no-op when preset is "inline"`,
+			);
+			return;
+		}
 
 		const cfg = AXIS_CONFIG[axis];
 		teardownInteractions();
@@ -577,7 +675,8 @@ function _provideWidget(
 				o = 20;
 			} else {
 				const startDist = axis === "height" ? rect.top : rect.left;
-				const endDist = vs - (axis === "height" ? rect.bottom : rect.right);
+				const endDist = vs -
+					(axis === "height" ? rect.bottom : rect.right);
 				o = Math.max(0, Math.min(startDist, endDist));
 			}
 		}
@@ -598,7 +697,14 @@ function _provideWidget(
 
 	function minimizeAxis(axis: Axis, size?: number): void {
 		if (state.get().destroyed) return;
-		if (state.get().preset === "inline") return;
+		if (state.get().preset === "inline") {
+			clog.warn(
+				`minimize${
+					axis === "height" ? "Height" : "Width"
+				}() is a no-op when preset is "inline"`,
+			);
+			return;
+		}
 
 		const cfg = AXIS_CONFIG[axis];
 		teardownInteractions();
@@ -637,12 +743,24 @@ function _provideWidget(
 	}
 
 	// API
+
+	/**
+	 * Show the widget. On a small-screen viewport this also auto-switches to
+	 * fullscreen; if a previous open() auto-fullscreened and the viewport is
+	 * now large, revert to the initial preset (unless the user has since
+	 * explicitly called setPreset/fullscreen/restore — see B9 in PR notes).
+	 */
 	function open(): void {
 		show();
-		if (state.get().isSmallScreen) {
-			fullscreen();
-		} else if (!(container.style.top || container.style.left)) {
-			restore();
+		const small = state.get().isSmallScreen;
+		if (small) {
+			if (state.get().preset !== "fullscreen") {
+				_setPreset("fullscreen");
+				smallScreenAutoFullscreen = true;
+			}
+		} else if (smallScreenAutoFullscreen) {
+			smallScreenAutoFullscreen = false;
+			_setPreset(initialPreset);
 		}
 	}
 
@@ -674,7 +792,8 @@ function _provideWidget(
 			container.addEventListener("transitionend", done, {
 				once: true,
 			});
-			setTimeout(done, 250);
+			// fallback derived from transition so it always outlasts the animation
+			setTimeout(done, parseTransitionMs(anim.transition) + 50);
 		} else {
 			container.style.display = "none";
 		}
@@ -685,9 +804,22 @@ function _provideWidget(
 		else show();
 	}
 
+	/**
+	 * Public setPreset: clears the small-screen auto-fullscreen flag because
+	 * the user is making an explicit choice (subsequent open() on large screen
+	 * must not silently revert it).
+	 */
 	function setPreset(preset: StylePreset): void {
+		smallScreenAutoFullscreen = false;
+		_setPreset(preset);
+	}
+
+	function _setPreset(preset: StylePreset): void {
 		if (state.get().destroyed) return;
-		if (!(preset in STYLE_PRESETS)) return;
+		if (!(preset in STYLE_PRESETS)) {
+			clog.warn(`setPreset: unknown preset "${preset}"`);
+			return;
+		}
 		// If detached and requesting inline, dock instead
 		if (state.get().detached && preset === "inline") {
 			dock();
@@ -734,7 +866,10 @@ function _provideWidget(
 
 	function reset(): void {
 		if (state.get().destroyed) return;
-		if (state.get().preset === "inline") return;
+		if (state.get().preset === "inline") {
+			clog.warn(`reset() is a no-op when preset is "inline"`);
+			return;
+		}
 		clearAxisOverrides();
 		setPreset(state.get().preset);
 	}
@@ -745,6 +880,7 @@ function _provideWidget(
 	}
 
 	function exitNativeFullscreen(): Promise<void> {
+		if (state.get().destroyed) return Promise.resolve();
 		if (!document.fullscreenElement) return Promise.resolve();
 		return document.exitFullscreen();
 	}
@@ -763,6 +899,12 @@ function _provideWidget(
 		iframe.src = "about:blank";
 		container.remove();
 		triggerEl?.remove();
+		// Null internal refs to allow GC (especially originalParent which may
+		// hold a sizable DOM subtree alive).
+		originalParent = null;
+		presetBeforeDetach = null;
+		placeholderEl = null;
+		triggerEl = null;
 		state.update((s) => ({
 			visible: false,
 			ready: false,
@@ -775,7 +917,18 @@ function _provideWidget(
 		}));
 	}
 
-	async function detach(): Promise<void> {
+	// --- detach / dock serialization ---
+	// Rapid or interleaved detach/dock calls run sequentially via this chain.
+	// Each task is a no-op if current state already matches the target.
+	let detachDockChain: Promise<unknown> = Promise.resolve();
+
+	function serializeDetachDock<T>(task: () => Promise<T>): Promise<T> {
+		const next = detachDockChain.then(task);
+		detachDockChain = next.catch(() => {}); // swallow so chain survives errors
+		return next;
+	}
+
+	async function _detach(): Promise<void> {
 		const s = state.get();
 		if (s.destroyed || s.detached) return;
 
@@ -818,8 +971,9 @@ function _provideWidget(
 		// (resetToPreset below clears cssText, restoring visibility)
 		container.style.visibility = "hidden";
 
-		// Preserve iframe hash before DOM move (reparenting reloads the iframe)
-		applyHashToSrc(captureIframeHash() ?? (await requestIframeHash()));
+		// Preserve iframe URL across the DOM move (reparenting reloads the iframe):
+		// same-origin: full URL; cross-origin: hash-only via postMessage protocol
+		iframe.src = await captureIframeUrlForReload();
 
 		// Move the container to document.body
 		document.body.appendChild(container);
@@ -848,22 +1002,30 @@ function _provideWidget(
 		send(MSG_TYPE_WIDTH_STATE, "normal");
 	}
 
-	async function dock(): Promise<void> {
+	async function _dock(): Promise<void> {
 		const s = state.get();
 		if (s.destroyed || !s.detached) return;
 		if (!originalParent || !placeholderEl) return;
 
 		teardownInteractions();
 
-		// Hide during async hash capture to prevent visual blink
+		// Hide during async URL capture to prevent visual blink
 		// (resetToPreset below clears cssText, restoring visibility)
 		container.style.visibility = "hidden";
 
-		// Preserve iframe hash before DOM move (moving reloads the iframe)
-		applyHashToSrc(captureIframeHash() ?? (await requestIframeHash()));
+		// Preserve iframe URL across the DOM move (moving reloads the iframe)
+		iframe.src = await captureIframeUrlForReload();
 
-		// Move container back to original parent, replacing placeholder
-		originalParent.insertBefore(container, placeholderEl);
+		// Move container back to original parent; if the placeholder was removed
+		// externally, fall back to appending to the original parent.
+		if (placeholderEl.parentNode === originalParent) {
+			originalParent.insertBefore(container, placeholderEl);
+		} else {
+			clog.warn(
+				"dock(): placeholder was disconnected; appending container to original parent",
+			);
+			originalParent.appendChild(container);
+		}
 		placeholderEl.remove();
 		placeholderEl = null;
 
@@ -892,11 +1054,34 @@ function _provideWidget(
 		presetBeforeDetach = null;
 	}
 
+	function detach(): Promise<void> {
+		return serializeDetachDock(_detach);
+	}
+
+	function dock(): Promise<void> {
+		return serializeDetachDock(_dock);
+	}
+
 	function send<T = unknown>(type: string, payload?: T): void {
 		if (state.get().destroyed) return;
+		let target: string;
+		if (lastIframeOrigin) {
+			target = lastIframeOrigin;
+		} else if (origins.length === 1) {
+			target = origins[0];
+		} else {
+			target = origins[0] || "*";
+			if (!sendOriginWarned) {
+				sendOriginWarned = true;
+				clog.warn(
+					`send() called before any iframe message with multiple allowedOrigin entries; ` +
+						`targeting "${target}". Subsequent sends will use the iframe's actual origin.`,
+				);
+			}
+		}
 		iframe.contentWindow?.postMessage(
 			{ type: `${MSG_PREFIX}${type}`, payload } satisfies WidgetMessage,
-			origins[0] || "*",
+			target,
 		);
 	}
 
@@ -945,59 +1130,40 @@ function _provideWidget(
 	};
 }
 
+/**
+ * Static properties attached to `provideWidget` as a consumer convenience
+ * (so `provideWidget.MSG_TYPE_READY` works alongside the named exports).
+ * Single source — no manual type expression to keep in sync.
+ */
+const STATIC_PROPS = {
+	MSG_PREFIX,
+	MSG_TYPE_READY,
+	MSG_TYPE_OPEN,
+	MSG_TYPE_FULLSCREEN,
+	MSG_TYPE_RESTORE,
+	MSG_TYPE_MAXIMIZE_HEIGHT,
+	MSG_TYPE_MINIMIZE_HEIGHT,
+	MSG_TYPE_MAXIMIZE_WIDTH,
+	MSG_TYPE_MINIMIZE_WIDTH,
+	MSG_TYPE_RESET,
+	MSG_TYPE_HIDE,
+	MSG_TYPE_DESTROY,
+	MSG_TYPE_SET_PRESET,
+	MSG_TYPE_DETACH,
+	MSG_TYPE_DOCK,
+	MSG_TYPE_NATIVE_FULLSCREEN,
+	MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
+	MSG_TYPE_HEIGHT_STATE,
+	MSG_TYPE_WIDTH_STATE,
+	MSG_TYPE_DETACHED,
+	MSG_TYPE_IS_SMALL_SCREEN,
+	MSG_TYPE_PRESET,
+	MSG_TYPE_REQUEST_HASH,
+	MSG_TYPE_HASH_REPORT,
+} as const;
+
 /** `provideWidget` with static message-type constants for consumer convenience */
-export const provideWidget: {
-	(options: WidgetProviderOptions): WidgetProviderApi;
-	readonly MSG_PREFIX: typeof MSG_PREFIX;
-	readonly MSG_TYPE_READY: typeof MSG_TYPE_READY;
-	readonly MSG_TYPE_OPEN: typeof MSG_TYPE_OPEN;
-	readonly MSG_TYPE_FULLSCREEN: typeof MSG_TYPE_FULLSCREEN;
-	readonly MSG_TYPE_RESTORE: typeof MSG_TYPE_RESTORE;
-	readonly MSG_TYPE_MAXIMIZE_HEIGHT: typeof MSG_TYPE_MAXIMIZE_HEIGHT;
-	readonly MSG_TYPE_MINIMIZE_HEIGHT: typeof MSG_TYPE_MINIMIZE_HEIGHT;
-	readonly MSG_TYPE_MAXIMIZE_WIDTH: typeof MSG_TYPE_MAXIMIZE_WIDTH;
-	readonly MSG_TYPE_MINIMIZE_WIDTH: typeof MSG_TYPE_MINIMIZE_WIDTH;
-	readonly MSG_TYPE_RESET: typeof MSG_TYPE_RESET;
-	readonly MSG_TYPE_HIDE: typeof MSG_TYPE_HIDE;
-	readonly MSG_TYPE_DESTROY: typeof MSG_TYPE_DESTROY;
-	readonly MSG_TYPE_SET_PRESET: typeof MSG_TYPE_SET_PRESET;
-	readonly MSG_TYPE_DETACH: typeof MSG_TYPE_DETACH;
-	readonly MSG_TYPE_DOCK: typeof MSG_TYPE_DOCK;
-	readonly MSG_TYPE_NATIVE_FULLSCREEN: typeof MSG_TYPE_NATIVE_FULLSCREEN;
-	readonly MSG_TYPE_EXIT_NATIVE_FULLSCREEN: typeof MSG_TYPE_EXIT_NATIVE_FULLSCREEN;
-	readonly MSG_TYPE_HEIGHT_STATE: typeof MSG_TYPE_HEIGHT_STATE;
-	readonly MSG_TYPE_WIDTH_STATE: typeof MSG_TYPE_WIDTH_STATE;
-	readonly MSG_TYPE_DETACHED: typeof MSG_TYPE_DETACHED;
-	readonly MSG_TYPE_IS_SMALL_SCREEN: typeof MSG_TYPE_IS_SMALL_SCREEN;
-	readonly MSG_TYPE_PRESET: typeof MSG_TYPE_PRESET;
-	readonly MSG_TYPE_REQUEST_HASH: typeof MSG_TYPE_REQUEST_HASH;
-	readonly MSG_TYPE_HASH_REPORT: typeof MSG_TYPE_HASH_REPORT;
-} = Object.assign(
+export const provideWidget: typeof _provideWidget & typeof STATIC_PROPS = Object.assign(
 	_provideWidget,
-	{
-		MSG_PREFIX,
-		MSG_TYPE_READY,
-		MSG_TYPE_OPEN,
-		MSG_TYPE_FULLSCREEN,
-		MSG_TYPE_RESTORE,
-		MSG_TYPE_MAXIMIZE_HEIGHT,
-		MSG_TYPE_MINIMIZE_HEIGHT,
-		MSG_TYPE_MAXIMIZE_WIDTH,
-		MSG_TYPE_MINIMIZE_WIDTH,
-		MSG_TYPE_RESET,
-		MSG_TYPE_HIDE,
-		MSG_TYPE_DESTROY,
-		MSG_TYPE_SET_PRESET,
-		MSG_TYPE_DETACH,
-		MSG_TYPE_DOCK,
-		MSG_TYPE_NATIVE_FULLSCREEN,
-		MSG_TYPE_EXIT_NATIVE_FULLSCREEN,
-		MSG_TYPE_HEIGHT_STATE,
-		MSG_TYPE_WIDTH_STATE,
-		MSG_TYPE_DETACHED,
-		MSG_TYPE_IS_SMALL_SCREEN,
-		MSG_TYPE_PRESET,
-		MSG_TYPE_REQUEST_HASH,
-		MSG_TYPE_HASH_REPORT,
-	} as const,
+	STATIC_PROPS,
 );

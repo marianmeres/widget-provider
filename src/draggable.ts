@@ -5,6 +5,7 @@ import type {
 	SnapEdge,
 } from "./types.ts";
 import { iconGrip } from "./iconGrip.ts";
+import { GHOST_BASE } from "./style-presets.ts";
 
 const DEFAULT_HANDLE_HEIGHT = 24;
 const DEFAULT_BOUNDARY_PADDING = 20;
@@ -51,32 +52,35 @@ export function makeDraggable(
 	const boundaryPadding = options.boundaryPadding ?? DEFAULT_BOUNDARY_PADDING;
 
 	// --- edge snap options ---
-	const edgeSnapEnabled =
-		options.edgeSnap !== false &&
+	const edgeSnapEnabled = options.edgeSnap !== false &&
 		(!!options.edgeSnap || !!options.onEdgeSnap);
-	const edgeSnapOpts: EdgeSnapOptions =
-		typeof options.edgeSnap === "object" ? options.edgeSnap : {};
+	const edgeSnapOpts: EdgeSnapOptions = typeof options.edgeSnap === "object"
+		? options.edgeSnap
+		: {};
 	const dwellMs = edgeSnapOpts.dwellMs ?? DEFAULT_DWELL_MS;
 	const onEdgeSnap = options.onEdgeSnap;
 
 	// --- handle element (floating grip in top-left corner) ---
 	const handle = document.createElement("div");
-	Object.assign(handle.style, {
-		position: "absolute",
-		top: "4px",
-		left: "4px",
-		zIndex: "1",
-		width: `${handleHeight}px`,
-		height: `${handleHeight}px`,
-		cursor: "grab",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-		userSelect: "none",
-		touchAction: "none",
-		opacity: "0.6",
-		color: "#808080",
-	} satisfies Partial<CSSStyleDeclaration>);
+	Object.assign(
+		handle.style,
+		{
+			position: "absolute",
+			top: "4px",
+			left: "4px",
+			zIndex: "1",
+			width: `${handleHeight}px`,
+			height: `${handleHeight}px`,
+			cursor: "grab",
+			display: "flex",
+			alignItems: "center",
+			justifyContent: "center",
+			userSelect: "none",
+			touchAction: "none",
+			opacity: "0.6",
+			color: "#808080",
+		} satisfies Partial<CSSStyleDeclaration>,
+	);
 
 	if (options.handleStyle) {
 		Object.assign(handle.style, options.handleStyle);
@@ -124,23 +128,24 @@ export function makeDraggable(
 		);
 	}
 
-	function createGhost(edge: SnapEdge): HTMLElement {
+	/**
+	 * Build the built-in edge-snap ghost. Returns the element WITHOUT appending
+	 * to the DOM — the caller is responsible for appending and animating-in.
+	 * This matches the contract of user-supplied `resetSnap.createGhost`.
+	 */
+	function buildEdgeGhost(edge: SnapEdge): HTMLElement {
 		const ghost = document.createElement("div");
 		const rect = container.getBoundingClientRect();
 		const vw = globalThis.innerWidth;
 		const vh = globalThis.innerHeight;
 
-		Object.assign(ghost.style, {
-			position: "fixed",
-			boxSizing: "border-box",
-			border: "2px dashed rgba(128, 128, 128, 0.5)",
-			borderRadius: "8px",
-			background: "rgba(128, 128, 128, 0.1)",
-			zIndex: "9999",
-			pointerEvents: "none",
-			transition: "opacity 150ms ease",
-			opacity: "0",
-		} satisfies Partial<CSSStyleDeclaration>);
+		Object.assign(
+			ghost.style,
+			GHOST_BASE,
+			{
+				zIndex: "9999",
+			} satisfies Partial<CSSStyleDeclaration>,
+		);
 
 		if (edge.includes("-")) {
 			// Corner: maximize both axes preview — full viewport
@@ -166,12 +171,15 @@ export function makeDraggable(
 			Object.assign(ghost.style, edgeSnapOpts.ghostStyle);
 		}
 
-		document.body.appendChild(ghost);
-		requestAnimationFrame(() => {
-			ghost.style.opacity = "1";
-		});
-
 		return ghost;
+	}
+
+	/** Append a freshly-built ghost element and kick off the fade-in. */
+	function mountGhost(el: HTMLElement): void {
+		document.body.appendChild(el);
+		requestAnimationFrame(() => {
+			el.style.opacity = "1";
+		});
 	}
 
 	function removeGhost(): void {
@@ -195,6 +203,7 @@ export function makeDraggable(
 	function onPointerDown(e: PointerEvent): void {
 		if (e.button !== 0) return; // left button only
 		e.preventDefault();
+		e.stopPropagation();
 		handle.setPointerCapture(e.pointerId);
 
 		cancelSnap();
@@ -224,6 +233,8 @@ export function makeDraggable(
 		handle.addEventListener("pointermove", onPointerMove);
 		handle.addEventListener("pointerup", onPointerUp);
 		handle.addEventListener("pointercancel", onPointerUp);
+
+		options.onDragStart?.();
 	}
 
 	function onPointerMove(e: PointerEvent): void {
@@ -265,17 +276,15 @@ export function makeDraggable(
 			activeEdge = edge;
 			dwellTimer = setTimeout(() => {
 				dwellTimer = null;
-				ghostEl = createGhost(edge);
+				ghostEl = buildEdgeGhost(edge);
+				mountGhost(ghostEl);
 				snapPending = true;
 			}, dwellMs);
 		} else if (wantReset) {
 			dwellTimer = setTimeout(() => {
 				dwellTimer = null;
 				ghostEl = options.resetSnap!.createGhost();
-				document.body.appendChild(ghostEl);
-				requestAnimationFrame(() => {
-					ghostEl!.style.opacity = "1";
-				});
+				mountGhost(ghostEl);
 				resetPending = true;
 			}, dwellMs);
 		}
@@ -295,18 +304,18 @@ export function makeDraggable(
 
 		// --- snap on release ---
 		const isCancel = e.type === "pointercancel";
-		if (!isCancel && snapPending && activeEdge && onEdgeSnap) {
-			const edge = activeEdge;
-			cancelSnap();
-			// Defer: callback triggers maximizeAxis -> teardownInteractions ->
-			// destroy() on this draggable. Must complete after this handler.
-			queueMicrotask(() => onEdgeSnap(edge));
-		} else if (!isCancel && resetPending && options.onResetSnap) {
-			cancelSnap();
-			queueMicrotask(() => options.onResetSnap!());
-		} else {
-			cancelSnap();
-		}
+		const snapFire = !isCancel && snapPending && activeEdge && onEdgeSnap;
+		const resetFire = !isCancel && resetPending && options.onResetSnap;
+		const edgeCaptured = activeEdge;
+		cancelSnap();
+
+		// Defer: callbacks may teardown/destroy this handle; must complete
+		// after this event handler returns so listener cleanup doesn't race.
+		queueMicrotask(() => {
+			options.onDragEnd?.();
+			if (snapFire && edgeCaptured) onEdgeSnap!(edgeCaptured);
+			else if (resetFire) options.onResetSnap!();
+		});
 	}
 
 	handle.addEventListener("pointerdown", onPointerDown);

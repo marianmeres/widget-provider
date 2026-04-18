@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -117,15 +117,11 @@
 			// Controls
 			document.getElementById("btn-show").onclick = () => widget.show();
 			document.getElementById("btn-hide").onclick = () => widget.hide();
-			document.getElementById("btn-toggle").onclick = () =>
-				widget.toggle();
-			document.getElementById("btn-detach").onclick = () =>
-				widget.detach();
+			document.getElementById("btn-toggle").onclick = () => widget.toggle();
+			document.getElementById("btn-detach").onclick = () => widget.detach();
 			document.getElementById("btn-dock").onclick = () => widget.dock();
-			document.getElementById("btn-destroy").onclick = () =>
-				widget.destroy();
-			document.getElementById("btn-fullscreen").onclick = () =>
-				widget.fullscreen();
+			document.getElementById("btn-destroy").onclick = () => widget.destroy();
+			document.getElementById("btn-fullscreen").onclick = () => widget.fullscreen();
 			document.getElementById("btn-send").onclick = () => {
 				widget.send("hello", { greeting: "Hi from host!" });
 				addLog("Sent: hello");

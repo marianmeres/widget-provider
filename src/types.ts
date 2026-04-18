@@ -125,15 +125,26 @@ export interface DraggableOptions {
 	 * shows a ghost preview after a dwell period and resets on release.
 	 * Provide `isActive` to control when reset-snap is available and
 	 * `createGhost` to build the preview element.
+	 *
+	 * NOTE: `createGhost` must return the element WITHOUT appending it to the DOM;
+	 * the caller appends and manages it. Appending inside the callback results in
+	 * a double-append.
 	 */
 	resetSnap?: {
 		/** Whether reset-snap should activate (checked each pointer move) */
 		isActive: () => boolean;
-		/** Create the ghost preview element for the reset target */
+		/** Create the ghost preview element (caller appends it — do not append inside) */
 		createGhost: () => HTMLElement;
 	};
 	/** Called when pointer is released while the reset-snap ghost is showing */
 	onResetSnap?: () => void;
+	/** Called once when a drag interaction starts (pointerdown on the handle) */
+	onDragStart?: () => void;
+	/**
+	 * Called when a drag interaction ends (pointerup/pointercancel).
+	 * Fires for every pointer release — including edge-snap and reset-snap releases.
+	 */
+	onDragEnd?: () => void;
 }
 
 /** Control handle returned by makeDraggable, used for cleanup */
@@ -180,7 +191,10 @@ export interface ResizableHandle {
 export interface PlaceholderOptions {
 	/** CSS overrides for the placeholder div */
 	style?: Partial<CSSStyleDeclaration>;
-	/** HTML content inside the placeholder (e.g., informational text) */
+	/**
+	 * HTML content inside the placeholder (assigned via `innerHTML`).
+	 * WARNING: this is inserted as raw HTML — never pass untrusted input.
+	 */
 	content?: string;
 }
 
@@ -242,7 +256,10 @@ export interface WidgetProviderOptions {
 	trigger?:
 		| boolean
 		| {
-			/** HTML content for the button (e.g. SVG icon). Defaults to a chat bubble SVG. */
+			/**
+			 * HTML content for the button (e.g. SVG icon). Defaults to a chat bubble SVG.
+			 * WARNING: inserted via `innerHTML` — never pass untrusted input.
+			 */
 			content?: string;
 			/** CSS overrides for the trigger button */
 			style?: Partial<CSSStyleDeclaration>;
