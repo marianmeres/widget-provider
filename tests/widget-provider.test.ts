@@ -115,8 +115,10 @@ Deno.test("float preset uses fixed positioning", () => {
 
 Deno.test("fullscreen preset covers viewport", () => {
 	assertEquals(STYLE_PRESETS.fullscreen.position, "fixed");
-	assertEquals(STYLE_PRESETS.fullscreen.width, "100vw");
-	assertEquals(STYLE_PRESETS.fullscreen.height, "100vh");
+	// dynamic viewport units so the overlay tracks the visible viewport as the
+	// mobile URL bar collapses/expands (static vw/vh = bar-collapsed/large viewport)
+	assertEquals(STYLE_PRESETS.fullscreen.width, "100dvw");
+	assertEquals(STYLE_PRESETS.fullscreen.height, "100dvh");
 });
 
 Deno.test("inline preset uses relative positioning", () => {

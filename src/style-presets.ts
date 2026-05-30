@@ -53,8 +53,11 @@ const PRESET_FULLSCREEN: CSSProps = {
 	position: "fixed",
 	top: "0",
 	left: "0",
-	width: "100vw",
-	height: "100vh",
+	// dynamic viewport units (dvw/dvh) track the *current* visible viewport, so the
+	// overlay self-corrects as the mobile URL bar collapses/expands. Static vw/vh map
+	// to the bar-collapsed (large) viewport and would clip the bottom when the bar shows.
+	width: "100dvw",
+	height: "100dvh",
 	zIndex: "10000",
 	padding: "0",
 	backgroundColor: "rgba(0,0,0,0.5)",

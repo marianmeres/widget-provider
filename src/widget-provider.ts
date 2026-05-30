@@ -383,7 +383,8 @@ function _provideWidget(
 			startProp: "top" as const,
 			endProp: "bottom" as const,
 			sizeProp: "height" as const,
-			viewportUnit: "vh",
+			// dynamic unit so maximize tracks the visible viewport (mobile URL bar)
+			viewportUnit: "dvh",
 			viewportSize: () => globalThis.innerHeight,
 			stateKey: "heightState" as const,
 			msgType: MSG_TYPE_HEIGHT_STATE,
@@ -396,7 +397,7 @@ function _provideWidget(
 			startProp: "left" as const,
 			endProp: "right" as const,
 			sizeProp: "width" as const,
-			viewportUnit: "vw",
+			viewportUnit: "dvw",
 			viewportSize: () => globalThis.innerWidth,
 			stateKey: "widthState" as const,
 			msgType: MSG_TYPE_WIDTH_STATE,

@@ -298,8 +298,8 @@ const PRESET_FULLSCREEN = {
     position: "fixed",
     top: "0",
     left: "0",
-    width: "100vw",
-    height: "100vh",
+    width: "100dvw",
+    height: "100dvh",
     zIndex: "10000",
     padding: "0",
     backgroundColor: "rgba(0,0,0,0.5)"
@@ -823,6 +823,15 @@ const LEVEL_MAP = {
     error: "ERROR"
 };
 const CLOG_SKIP = Symbol.for("@marianmeres/clog-skip");
+const DEFAULT_JSON_FIELD_NAMES = {
+    timestamp: "timestamp",
+    level: "level",
+    logger: "logger",
+    message: "message",
+    meta: "meta",
+    arg: "arg",
+    stack: "stack"
+};
 const CLOG_INSTANCE = Symbol.for("@marianmeres/clog-instance");
 const GLOBAL_KEY = Symbol.for("@marianmeres/clog");
 const GLOBAL = globalThis[GLOBAL_KEY] ??= {
@@ -981,21 +990,26 @@ const defaultWriter = (data)=>{
     }
     const useJson = config?.jsonOutput ?? GLOBAL.jsonOutput;
     if (useJson) {
+        const fieldNames = {
+            ...DEFAULT_JSON_FIELD_NAMES,
+            ...GLOBAL.jsonFieldNames,
+            ...config?.jsonFieldNames
+        };
         const output = {
-            timestamp,
-            level,
+            [fieldNames.timestamp]: timestamp,
+            [fieldNames.level]: level,
             ...namespace ? {
-                namespace
+                [fieldNames.logger]: namespace
             } : {},
-            message: cleanedArgs[0],
+            [fieldNames.message]: cleanedArgs[0],
             ...data.meta && {
-                meta: data.meta
+                [fieldNames.meta]: data.meta
             }
         };
         cleanedArgs.slice(1).forEach((arg, i)=>{
-            output[`arg_${i}`] = arg?.stack ?? arg;
+            output[`${fieldNames.arg}_${i}`] = arg?.stack ?? arg;
         });
-        if (stackStr) output.stack = stackStr;
+        if (stackStr) output[fieldNames.stack] = stackStr;
         console[consoleMethod](JSON.stringify(output));
         return;
     }
@@ -1007,7 +1021,7 @@ const defaultWriter = (data)=>{
 const colorWriter = (configuredColor)=>(data)=>{
         const { level, namespace, args, timestamp, config, stack } = data;
         const runtime = detectRuntime();
-        if (runtime !== "browser" && runtime !== "deno" || !namespace || (config?.concat ?? GLOBAL.concat)) {
+        if (runtime !== "browser" && runtime !== "deno" || !namespace || (config?.concat ?? GLOBAL.concat) || (config?.jsonOutput ?? GLOBAL.jsonOutput)) {
             return defaultWriter(data);
         }
         const color = configuredColor === "auto" ? autoColor(namespace) : configuredColor;
@@ -1112,6 +1126,7 @@ createClog.reset = ()=>{
     createClog.global.hook = undefined;
     createClog.global.writer = undefined;
     createClog.global.jsonOutput = false;
+    createClog.global.jsonFieldNames = undefined;
     createClog.global.debug = undefined;
     createClog.global.stringify = undefined;
     createClog.global.concat = undefined;
@@ -1339,7 +1354,7 @@ function _provideWidget(options) {
             startProp: "top",
             endProp: "bottom",
             sizeProp: "height",
-            viewportUnit: "vh",
+            viewportUnit: "dvh",
             viewportSize: ()=>globalThis.innerHeight,
             stateKey: "heightState",
             msgType: MSG_TYPE_HEIGHT_STATE,
@@ -1352,7 +1367,7 @@ function _provideWidget(options) {
             startProp: "left",
             endProp: "right",
             sizeProp: "width",
-            viewportUnit: "vw",
+            viewportUnit: "dvw",
             viewportSize: ()=>globalThis.innerWidth,
             stateKey: "widthState",
             msgType: MSG_TYPE_WIDTH_STATE,
