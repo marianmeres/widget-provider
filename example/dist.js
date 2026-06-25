@@ -301,7 +301,6 @@ const PRESET_FULLSCREEN = {
     width: "100dvw",
     height: "100dvh",
     zIndex: "10000",
-    padding: "0",
     backgroundColor: "rgba(0,0,0,0.5)"
 };
 const PRESET_INLINE = {
@@ -357,11 +356,34 @@ const GHOST_BASE = {
     transition: "opacity 150ms ease",
     opacity: "0"
 };
+const WIDGET_CONTAINER_CLASS = "wp-widget-container";
+const WIDGET_PRESET_ATTR = "data-wp-preset";
+const PWA_STYLE_ELEMENT_ID = "wp-pwa-safe-area-styles";
+const PWA_SAFE_AREA_CSS = `
+@media (display-mode: standalone), (display-mode: fullscreen) {
+	.${WIDGET_CONTAINER_CLASS}[${WIDGET_PRESET_ATTR}="fullscreen"] {
+		padding-top: env(safe-area-inset-top, 0px);
+		padding-right: env(safe-area-inset-right, 0px);
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+		padding-left: env(safe-area-inset-left, 0px);
+	}
+}`;
+function ensureGlobalStyles() {
+    if (typeof document === "undefined") return;
+    if (document.getElementById(PWA_STYLE_ELEMENT_ID)) return;
+    const style = document.createElement("style");
+    style.id = PWA_STYLE_ELEMENT_ID;
+    style.textContent = PWA_SAFE_AREA_CSS;
+    (document.head ?? document.documentElement)?.appendChild(style);
+}
 function applyPreset(container, preset, overrides) {
     const base = STYLE_PRESETS[preset];
     if (!base) {
         throw new Error(`Unknown style preset: "${preset}"`);
     }
+    ensureGlobalStyles();
+    container.classList.add(WIDGET_CONTAINER_CLASS);
+    container.setAttribute(WIDGET_PRESET_ATTR, preset);
     Object.assign(container.style, base, overrides);
 }
 function applyIframeBaseStyles(iframe) {
@@ -1134,6 +1156,19 @@ createClog.reset = ()=>{
     createClog.global.getMeta = undefined;
 };
 const clog = createClog("widget-provider");
+let pwaSafeAreaWarned = false;
+function warnIfPwaMissingViewportFit() {
+    if (pwaSafeAreaWarned) return;
+    if (typeof globalThis.matchMedia !== "function") return;
+    const isPwa = globalThis.matchMedia("(display-mode: standalone)").matches || globalThis.matchMedia("(display-mode: fullscreen)").matches;
+    if (!isPwa) return;
+    pwaSafeAreaWarned = true;
+    const metas = Array.from(document.querySelectorAll('meta[name="viewport"]'));
+    const hasCover = metas.some((m)=>/viewport-fit\s*=\s*cover/i.test(m.content));
+    if (!hasCover) {
+        clog.warn(`fullscreen preset is active in a PWA (standalone/fullscreen display-mode), ` + `but the host page's <meta name="viewport"> lacks "viewport-fit=cover". ` + `Device safe areas (notch / home indicator) won't be respected — the ` + `fullscreen overlay can clip under system UI. Add viewport-fit=cover to ` + `the host viewport meta to enable safe-area insets.`);
+    }
+}
 const DEFAULT_TRIGGER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 function resolveAllowedOrigins(explicit, widgetUrl) {
     if (explicit) {
@@ -1201,6 +1236,7 @@ function _provideWidget(options) {
     const iframe = document.createElement("iframe");
     applyPreset(container, stylePreset, styleOverrides);
     applyIframeBaseStyles(iframe);
+    if (stylePreset === "fullscreen") warnIfPwaMissingViewportFit();
     iframe.src = widgetUrl;
     if (sandbox) {
         iframe.setAttribute("sandbox", sandbox);
@@ -1575,7 +1611,8 @@ function _provideWidget(options) {
         const overrides = {
             [cfg.startProp]: `${o}px`,
             [cfg.endProp]: "",
-            [cfg.sizeProp]: `calc(100${cfg.viewportUnit} - ${o * 2}px)`
+            [cfg.sizeProp]: `calc(100${cfg.viewportUnit} - ${o * 2}px)`,
+            padding: "0"
         };
         cfg.setOverrides(overrides);
         Object.assign(container.style, overrides);
@@ -1596,7 +1633,8 @@ function _provideWidget(options) {
         teardownInteractions();
         resetToPreset(undefined, axis);
         const overrides = {
-            [cfg.sizeProp]: `${size ?? 48}px`
+            [cfg.sizeProp]: `${size ?? 48}px`,
+            padding: "0"
         };
         cfg.setOverrides(overrides);
         Object.assign(container.style, overrides);
@@ -1695,6 +1733,7 @@ function _provideWidget(options) {
         teardownInteractions();
         clearAxisOverrides();
         resetToPreset(preset);
+        if (preset === "fullscreen") warnIfPwaMissingViewportFit();
         state.update((s)=>({
                 ...s,
                 preset,
@@ -1948,4 +1987,4 @@ const provideWidget = Object.assign(_provideWidget, STATIC_PROPS);
 export { isOriginAllowed as isOriginAllowed, parseTransitionMs as parseTransitionMs, provideWidget as provideWidget, resolveAllowedOrigins as resolveAllowedOrigins, resolveAnimateConfig as resolveAnimateConfig };
 export { makeDraggable as makeDraggable, resolveEdge as resolveEdge };
 export { makeResizable as makeResizable };
-export { ANIMATE_PRESETS as ANIMATE_PRESETS, GHOST_BASE as GHOST_BASE, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, STYLE_PRESETS as STYLE_PRESETS };
+export { ANIMATE_PRESETS as ANIMATE_PRESETS, GHOST_BASE as GHOST_BASE, IFRAME_BASE as IFRAME_BASE, PLACEHOLDER_BASE as PLACEHOLDER_BASE, PWA_SAFE_AREA_CSS as PWA_SAFE_AREA_CSS, PWA_STYLE_ELEMENT_ID as PWA_STYLE_ELEMENT_ID, STYLE_PRESETS as STYLE_PRESETS, WIDGET_CONTAINER_CLASS as WIDGET_CONTAINER_CLASS, WIDGET_PRESET_ATTR as WIDGET_PRESET_ATTR };
