@@ -72,6 +72,39 @@ widget.destroy();
 | `"float"`      | Fixed bottom-right chat-widget style    |
 | `"fullscreen"` | Covers viewport with backdrop overlay   |
 
+#### Fullscreen inside a PWA (safe-area insets)
+
+When the **host page** runs as an installed PWA (`display-mode: standalone` or
+`fullscreen`) there is no browser chrome, so a fullscreen overlay would extend
+under the device status bar / notch / home indicator and clip its top/bottom
+content. The library injects a single `<style>` element (the only non-inline
+styling it uses) that pads the fullscreen container by the device safe-area
+insets, so the iframe sits within the safe area while the backdrop still covers
+the whole screen. Outside a PWA the rule never applies (the browser chrome
+already accounts for insets).
+
+> **Required:** the **host page** must opt in via its viewport meta — the library
+> cannot set this for you. Without it, `env(safe-area-inset-*)` resolves to `0`
+> and the handling is a silent no-op (a `clog.warn` is emitted in that case when
+> the fullscreen preset becomes active in a PWA):
+>
+> ```html
+> <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+> ```
+
+Notes:
+
+- The safe-area band shows the backdrop (`rgba(0,0,0,0.5)` by default) over the
+  host page. Override the look via `styleOverrides` — `styleOverrides.backgroundColor`
+  changes the scrim, and `styleOverrides: { padding: "0" }` opts out of the insets
+  entirely (edge-to-edge).
+- If the embedded widget app _also_ applies `env(safe-area-inset-*)` internally,
+  the insets will double up — let the host (this library) handle them, or zero
+  them inside the iframe.
+- The class/attribute/stylesheet hooks are exported (`WIDGET_CONTAINER_CLASS`,
+  `WIDGET_PRESET_ATTR`, `PWA_STYLE_ELEMENT_ID`, `PWA_SAFE_AREA_CSS`) for consumers
+  who want to pre-inject, de-dupe, or replace the rule.
+
 ### Detach / Dock (inline only)
 
 An inline widget can be temporarily detached from its parent container and floated

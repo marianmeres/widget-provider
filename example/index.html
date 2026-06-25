@@ -2,6 +2,18 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
+		<!-- viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to
+		     real values, which the fullscreen preset's PWA safe-area handling relies
+		     on. The apple/mobile metas let this page be installed and the fullscreen
+		     preset tested via "Add to Home Screen" (iOS) or DevTools > Rendering >
+		     "Emulate CSS media feature display-mode: standalone". -->
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<title>widget-provider demo</title>
 		<style>
 			body {

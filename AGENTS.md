@@ -37,6 +37,8 @@ Embeds an iframe-based widget into a host page with:
 - Free-resize with corner handle (float preset only)
 - Detach/dock workflow (inline preset only — float the widget, leave placeholder, preserve iframe hash)
 - Small-screen detection with auto-fullscreen on `open()`
+- PWA safe-area handling: the `fullscreen` preset is padded by device safe-area
+  insets when the host runs as an installed PWA (requires host `viewport-fit=cover`)
 - Reactive state via `@marianmeres/store` (Svelte-compatible subscribe)
 
 ## Critical Conventions
@@ -52,6 +54,7 @@ Embeds an iframe-based widget into a host page with:
 9. `styleOverrides` is applied on every `applyPreset` call (including runtime `setPreset` switches) — preset-conditional overrides would require a per-preset map
 10. `open()` tracks an internal `smallScreenAutoFullscreen` flag so that a later `open()` on a large viewport only auto-reverts when the prior open() did the auto-switch. Explicit `setPreset/fullscreen/restore` calls clear the flag
 11. On drag end + resize end, current container geometry is captured into `heightOverrides`/`widthOverrides` (axes whose state is `"normal"`). This lets `resetToPreset` reapply user geometry when the other axis is being changed — a plain `maximizeHeight()` no longer clobbers a dragged/resized width
+12. Styling is otherwise 100% inline, with ONE deliberate exception: `ensureGlobalStyles()` injects a singleton `<style>` (`PWA_SAFE_AREA_CSS`) so the `fullscreen` preset can use `@media (display-mode: standalone/fullscreen)` to pad by `env(safe-area-inset-*)` (can't express `@media` inline). It works WITHOUT `!important` only because the fullscreen preset writes no inline `padding` — INVARIANT: never set inline padding on the baseline fullscreen container (maximize/minimize set `padding: 0` on purpose to opt out). Depends on host `viewport-fit=cover`; `warnIfPwaMissingViewportFit()` emits a dev `clog.warn` when it's missing
 
 ## Before Making Changes
 

@@ -55,6 +55,41 @@ import { createPubSub } from "@marianmeres/pubsub";
 
 const clog = createClog("widget-provider");
 
+// Once-per-page guard for the PWA safe-area misconfiguration warning below.
+let pwaSafeAreaWarned = false;
+
+/**
+ * Best-effort dev warning emitted when the `fullscreen` preset becomes active
+ * inside an installed PWA whose host page lacks `viewport-fit=cover`.
+ *
+ * The injected safe-area stylesheet (PWA_SAFE_AREA_CSS) relies on
+ * `env(safe-area-inset-*)`, which only resolves to nonzero values when the HOST
+ * page's viewport meta opts in via `viewport-fit=cover` — something this library
+ * cannot set on the host. Without it the fix is a silent no-op, so we surface the
+ * cause once. Heuristic and conservative: never warns outside a PWA display mode.
+ */
+function warnIfPwaMissingViewportFit(): void {
+	if (pwaSafeAreaWarned) return;
+	if (typeof globalThis.matchMedia !== "function") return;
+	const isPwa = globalThis.matchMedia("(display-mode: standalone)").matches ||
+		globalThis.matchMedia("(display-mode: fullscreen)").matches;
+	if (!isPwa) return;
+	pwaSafeAreaWarned = true; // evaluate at most once, only once actually in a PWA
+	const metas = Array.from(
+		document.querySelectorAll<HTMLMetaElement>('meta[name="viewport"]'),
+	);
+	const hasCover = metas.some((m) => /viewport-fit\s*=\s*cover/i.test(m.content));
+	if (!hasCover) {
+		clog.warn(
+			`fullscreen preset is active in a PWA (standalone/fullscreen display-mode), ` +
+				`but the host page's <meta name="viewport"> lacks "viewport-fit=cover". ` +
+				`Device safe areas (notch / home indicator) won't be respected — the ` +
+				`fullscreen overlay can clip under system UI. Add viewport-fit=cover to ` +
+				`the host viewport meta to enable safe-area insets.`,
+		);
+	}
+}
+
 const DEFAULT_TRIGGER_ICON =
 	`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
@@ -180,6 +215,7 @@ function _provideWidget(
 
 	applyPreset(container, stylePreset, styleOverrides);
 	applyIframeBaseStyles(iframe);
+	if (stylePreset === "fullscreen") warnIfPwaMissingViewportFit();
 
 	iframe.src = widgetUrl;
 	if (sandbox) {
@@ -682,11 +718,17 @@ function _provideWidget(
 			}
 		}
 
-		// Save and apply overrides
+		// Save and apply overrides. `padding: 0` opts this container out of the
+		// injected PWA safe-area padding (see PWA_SAFE_AREA_CSS): that rule is
+		// sized for the full-screen overlay, but here we set an explicit border-box
+		// size, so leaving the inset padding on would shrink the iframe content box
+		// by the safe-area insets on top of the requested geometry. Inline padding
+		// beats the (non-!important) stylesheet rule; cleared on resetToPreset.
 		const overrides: Record<string, string> = {
 			[cfg.startProp]: `${o}px`,
 			[cfg.endProp]: "",
 			[cfg.sizeProp]: `calc(100${cfg.viewportUnit} - ${o * 2}px)`,
+			padding: "0",
 		};
 		cfg.setOverrides(overrides);
 		Object.assign(container.style, overrides);
@@ -711,9 +753,13 @@ function _provideWidget(
 		teardownInteractions();
 		resetToPreset(undefined, axis);
 
-		// Save and apply overrides
+		// Save and apply overrides. `padding: 0` opts out of the injected PWA
+		// safe-area padding (see PWA_SAFE_AREA_CSS) — without it the safe-area
+		// insets (often ~80px combined on a notched phone) would consume a small
+		// minimized bar (default 48px) entirely, collapsing the iframe to zero.
 		const overrides: Record<string, string> = {
 			[cfg.sizeProp]: `${size ?? 48}px`,
+			padding: "0",
 		};
 		cfg.setOverrides(overrides);
 		Object.assign(container.style, overrides);
@@ -829,6 +875,7 @@ function _provideWidget(
 		teardownInteractions();
 		clearAxisOverrides();
 		resetToPreset(preset);
+		if (preset === "fullscreen") warnIfPwaMissingViewportFit();
 		state.update((s) => ({
 			...s,
 			preset,

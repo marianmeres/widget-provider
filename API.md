@@ -428,6 +428,12 @@ interface WidgetMessage<T = unknown> {
 type StylePreset = "float" | "fullscreen" | "inline";
 ```
 
+When the host page runs as an installed PWA (`display-mode: standalone`/`fullscreen`),
+the `"fullscreen"` preset is padded by the device safe-area insets so it stays clear
+of the notch / status bar / home indicator. This requires `viewport-fit=cover` in the
+host viewport meta — see [Fullscreen inside a PWA](./README.md#fullscreen-inside-a-pwa-safe-area-insets)
+and the `PWA_SAFE_AREA_CSS` constant below.
+
 ---
 
 ### `AnimatePreset`
@@ -530,3 +536,16 @@ All exported as `MSG_TYPE_*` string constants.
 ### `GHOST_BASE`
 
 `Partial<CSSStyleDeclaration>` — Shared base styles for edge-snap and reset-snap ghost previews (dashed gray box, fades in). Spread this into a custom `resetSnap.createGhost` for visual consistency with the built-in edge-snap ghost.
+
+### PWA safe-area constants
+
+Hooks for the injected stylesheet that makes the `"fullscreen"` preset safe-area
+aware inside an installed PWA (see [Fullscreen inside a PWA](./README.md#fullscreen-inside-a-pwa-safe-area-insets)).
+Exported so consumers can pre-inject, de-dupe, or replace the rule.
+
+| Constant                 | Type     | Description                                                                                                                                                                                                           |
+| ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WIDGET_CONTAINER_CLASS` | `string` | `"wp-widget-container"` — class added to every widget container; selector hook for the injected stylesheet.                                                                                                           |
+| `WIDGET_PRESET_ATTR`     | `string` | `"data-wp-preset"` — attribute set on the container reflecting the active `StylePreset` (e.g. `"fullscreen"`).                                                                                                        |
+| `PWA_STYLE_ELEMENT_ID`   | `string` | `"wp-pwa-safe-area-styles"` — `id` of the singleton injected `<style>` element (guards against double-inject).                                                                                                        |
+| `PWA_SAFE_AREA_CSS`      | `string` | The CSS rule itself — an `@media (display-mode: standalone), (display-mode: fullscreen)` block padding the fullscreen container by `env(safe-area-inset-*)`. Requires `viewport-fit=cover` in the host viewport meta. |
