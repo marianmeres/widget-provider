@@ -17,7 +17,7 @@
     "npm:publish": "deno run -A scripts/build-npm.ts && cd ./.npm-dist && npm publish --access=public",
     "example:build": "deno run -A jsr:@marianmeres/deno-build --strict --root src --entry mod.ts --outdir example --outfile dist.js",
     "example:watch": "deno task example:build --watch-dir ./src --watch",
-    "release": "deno run -A jsr:@marianmeres/deno-release",
+    "release": "deno run -A jsr:@marianmeres/release",
     "publish": "deno publish && deno task npm:publish",
     "rp": "deno task release -y && deno task publish",
     "rpm": "deno task release minor -y && deno task publish"
